@@ -36,7 +36,7 @@ CC = icc
 #CFLAGS = -O3 -xHost -qopenmp
 #CFLAGS = -O3 -xMIC-AVX512 -qopenmp
 CFLAGS = -O3 -xCOMMON-AVX512 -qopenmp
-CFLAGS = -O3 -xCORE-AVX2 -qopenmp
+#CFLAGS = -O3 -xCORE-AVX2 -qopenmp
 
 all: cachebw.exe
 

@@ -30,6 +30,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/time.h>
+#ifdef _OPENMP
+#include <omp.h>
+#endif
 
 #ifdef NTIMES
 #if NTIMES<=1

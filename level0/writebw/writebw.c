@@ -31,6 +31,10 @@
 #include <stdlib.h>
 #include <sys/time.h>
 
+#ifdef _OPENMP
+#include <omp.h>
+#endif
+
 #ifndef STREAM_ARRAY_SIZE
 #   define STREAM_ARRAY_SIZE	10000000
 #endif
