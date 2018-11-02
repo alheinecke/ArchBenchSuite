@@ -99,7 +99,14 @@ void gflops_float_qfma(float* data) {
 }
 #else
 void gflops_float_qfma(float* data) {
+#ifdef _OPENMP
+  #pragma omp single
+  {
+#endif
   std::cout << "QFMA is not available on this architecture" << std::endl;
+#ifdef _OPENMP
+  }
+#endif
 }
 #endif
 
