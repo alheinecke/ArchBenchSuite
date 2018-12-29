@@ -114,11 +114,12 @@ int main(int argc, char* argv[])
       gettimeofday(&end, NULL);
 
       double time = sec(start, end);
+      double dm = (double)m;
       double dn = (double)n;
       double dk = (double)k;
       double dr = (double)rep1;
       gethostname(host, 255);
-      std::cout << host <<  "," << m << "," << n << "," << k << "," << trA << "," << trB << "," << rep1 << "," << time/dr << "," << dk*dn*dn*2.0 << "," << ((dr*dk*dn*dn*2.0)/1e9)/time << std::endl;
+      std::cout << host <<  "," << m << "," << n << "," << k << "," << trA << "," << trB << "," << rep1 << "," << time/dr << "," << dk*dm*dn*2.0 << "," << ((dr*dk*dm*dn*2.0)/1e9)/time << std::endl;
     }
 
     return 0;
