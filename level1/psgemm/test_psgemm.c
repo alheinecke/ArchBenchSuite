@@ -111,11 +111,17 @@ int main(int argc, char* argv[])
         sgemm_(&trA, &trB, &m, &n, &k, &alpha, A, &m, B, &k, &beta, C, &m);
       }
     } else if ( pack == 1 ) {
-      sgemm_compute(&trP, &trB, &m, &n, &k, Ap, &m, B, &k, &beta, C, &m);
+      for (r1 = 0; r1 < rep1; ++r1) {
+        sgemm_compute(&trP, &trB, &m, &n, &k, Ap, &m, B, &k, &beta, C, &m);
+      }
     } else if ( pack == 2 ) {
-      sgemm_compute(&trA, &trP, &m, &n, &k, A, &m, Bp, &k, &beta, C, &m);
+      for (r1 = 0; r1 < rep1; ++r1) {
+        sgemm_compute(&trA, &trP, &m, &n, &k, A, &m, Bp, &k, &beta, C, &m);
+      }
     } else if ( pack == 3 ) {
-      sgemm_compute(&trP, &trP, &m, &n, &k, Ap, &m, Bp, &k, &beta, C, &m);
+      for (r1 = 0; r1 < rep1; ++r1) {
+        sgemm_compute(&trP, &trP, &m, &n, &k, Ap, &m, Bp, &k, &beta, C, &m);
+      }
     }
 #else
     for (r1 = 0; r1 < rep1; ++r1) { 
@@ -135,10 +141,10 @@ int main(int argc, char* argv[])
 
   _mm_free( A );
   _mm_free( B );
-  _mm_free( Bp );
+  _mm_free( C );
 #ifdef __MKL
-  sgemm_free( C );
   sgemm_free( Ap );
+  sgemm_free( Bp );
 #endif
 
   return 0;
