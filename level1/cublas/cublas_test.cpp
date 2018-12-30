@@ -149,13 +149,10 @@ void test_float(size_t start, size_t end, size_t inc)
 #ifdef MEASURE_KERNEL
 		timer_start();
 #endif
-		cublasSgemm('n', 'n', i, i, i, 1.0, d_A, i, d_B, i, 0.0, d_C, i);
-
-		status = cublasGetVector(i*i, sizeof(float), d_C, 1, h_C, 1);
-		if (status != CUBLAS_STATUS_SUCCESS) {
-			printf ("!!!! device access error (read C)\n");
-		}
-		
+                for ( int z = 0; z < 100; ++z ) {
+		  cublasSgemm('n', 'n', i, i, i, 1.0, d_A, i, d_B, i, 0.0, d_C, i);
+                }
+                cudaDeviceSynchronize();
 #ifdef MEASURE_KERNEL
 		TIME = timer_stop();
 #endif
@@ -184,7 +181,7 @@ void test_float(size_t start, size_t end, size_t inc)
 		delete[] h_C;
 		
 		// Print results
-		std::cout << i << ";" << TIME << ";" << (FLOPS/(1e9))/TIME << std::endl;
+		std::cout << i << ";" << TIME/100.0 << ";" << (FLOPS/(1e9))/(TIME/100.0) << std::endl;
 	}
 	
 	std::cout << std::endl;
@@ -275,11 +272,7 @@ void test_double(size_t start, size_t end, size_t inc)
                 for ( int z = 0; z < 100; ++z ) {
 	      	  cublasDgemm('n', 'n', i, i, i, 1.0, d_A, i, d_B, i, 0.0, d_C, i);
                 }
-
-		status = cublasGetVector(i*i, sizeof(double), d_C, 1, h_C, 1);
-		if (status != CUBLAS_STATUS_SUCCESS) {
-			printf ("!!!! device access error (read C)\n");
-		}
+                cudaDeviceSynchronize();
 #ifdef MEASURE_KERNEL
 		TIME = timer_stop();
 #endif
