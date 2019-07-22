@@ -114,99 +114,40 @@ inline double sec(struct timeval start, struct timeval end) {
   return ((double)(((end.tv_sec * 1000000 + end.tv_usec) - (start.tv_sec * 1000000 + start.tv_usec)))) / 1.0e6;
 }
 
-int main(int argc, char* argv[]) {
-  size_t l_numThreads = 1;
-  size_t l_arraySize_0 = 256;
-  size_t l_arrayFactor = 2;
-  size_t l_arraySteps = 1;
-  size_t l_iters_0 = 1;
-  size_t l_private = 0;
-  size_t i = 0;
 
-  if (argc != 6) {
-    printf("#doubles increase-factor increase-steps private={0/NNZ} #reps\n");
-    return -1;
-  }
-
-  l_arraySize_0 = atoi(argv[1]);
-  l_arrayFactor = atoi(argv[2]);
-  l_arraySteps = atoi(argv[3]); 
-  l_private = atoi(argv[4]);
-  l_iters_0 = atoi(argv[5]);
-
-
-#ifdef _OPENMP
-  #pragma omp parallel
+inline void run_benchmark( double* i_data, size_t i_arraySize, size_t i_private, size_t i_iters ) {
+  // we do manual reduction here as we don't rely on a smart OpenMP implementation
+  #pragma omp parallel 
   {
-    #pragma omp master
-    l_numThreads = omp_get_num_threads();
-  }
-#else
-  l_numThreads = 1;
-#endif
-
-  if (l_arraySize_0 % 256 != 0) {
-    printf("ERROR % 256\n");
-    exit(-1);
-  }
-  
-  printf("Number of threads: %lld\n", l_numThreads);
-  if ( l_private == 0 ) {
-    printf("Using shared Read Buffer\n");
-  } else {
-    printf("Using private Read Buffer\n");
-    l_arraySize_0 *= l_numThreads;
-  }
-  printf("KiB-per-core-read,MiB/s,Time\n");
- 
-  for ( i = 0 ; i < l_arraySteps; ++i ) {
-    double* l_data;
-    size_t l_n = 0;
-    double l_avgTime;
-    struct timeval l_startTime, l_endTime;
-    size_t l_arraySize = (i == 0) ? l_arraySize_0 : l_arraySize_0 * i * l_arrayFactor;
-    size_t l_iters = (i == 0) ? l_iters_0 : l_iters_0 / (i * l_arrayFactor);
-    double l_size = (l_private == 0) ? (double)((size_t)l_arraySize)*sizeof(double) : (double)((size_t)l_arraySize/l_numThreads)*sizeof(double);
-    // init data
-    posix_memalign((void**)&l_data, 2097152, ((size_t)l_arraySize)*sizeof(double));;
-
-    #pragma omp parallel for private(l_n)
-    for ( l_n = 0; l_n < l_arraySize; l_n++ ) {
-      l_data[l_n] = (double)l_n;
-    }
-
-    // run benchmark
-    gettimeofday(&l_startTime, NULL);
-    // we do manual reduction here as we don't rely on a smart OpenMP implementation
-    #pragma omp parallel 
-    {
 #ifdef _OPENMP
-      size_t l_tid = omp_get_thread_num();
+    size_t l_tid = omp_get_thread_num();
+    size_t l_numThreads = omp_get_num_threads();
 #else
-      size_t l_tid = 0;
+    size_t l_tid = 0;
+    size_t l_numThreads = 1;
 #endif
-      size_t l_chunkSize;
-      double* l_locAddr;
-      size_t* l_pChunkSize;
+    size_t l_chunkSize;
+    double* l_locAddr;
+    size_t* l_pChunkSize;
     
-      if (l_private == 0) {
-        l_chunkSize = l_arraySize;
-        l_locAddr = l_data;
-      } else {
-        l_chunkSize = l_arraySize/l_numThreads;
-        l_locAddr = l_data + (l_chunkSize*l_tid);
-      }
-      l_pChunkSize = &l_chunkSize;
+    if (i_private == 0) {
+      l_chunkSize = i_arraySize;
+      l_locAddr = i_data;
+    } else {
+      l_chunkSize = i_arraySize/l_numThreads;
+      l_locAddr = i_data + (l_chunkSize*l_tid);
+    }
+    l_pChunkSize = &l_chunkSize;
 
-      size_t l_i = 0;
- 
-      for( l_i = 0; l_i < l_iters; l_i++ ) {
+    size_t l_i = 0;
+
+    for( l_i = 0; l_i < i_iters; l_i++ ) {
 #ifdef __VSX__
-        //if (l_tid % 2 == 0) {
-        run_vsx_kernel(l_locAddr, l_chunkSize);
-        //} else {
-        //  run_gpr_kernel((size_t*)l_locAddr, l_chunkSize);
-        //}
+      //if (l_tid % 2 == 0) {
+      run_vsx_kernel(l_locAddr, l_chunkSize);
+      //} else {
+      //  run_gpr_kernel((size_t*)l_locAddr, l_chunkSize);
+      //}
 #endif
 #ifdef __ARM_NEON
         __asm__ __volatile__("mov x0, %0\n\t"
@@ -345,7 +286,76 @@ int main(int argc, char* argv[]) {
 #endif
       }
     } 
+} 
 
+
+int main(int argc, char* argv[]) {
+  size_t l_numThreads = 1;
+  size_t l_arraySize_0 = 256;
+  size_t l_arrayFactor = 2;
+  size_t l_arraySteps = 1;
+  size_t l_iters_0 = 1;
+  size_t l_private = 0;
+  size_t i = 0;
+
+  if (argc != 6) {
+    printf("#doubles increase-factor increase-steps private={0/NNZ} #reps\n");
+    return -1;
+  }
+
+  l_arraySize_0 = atoi(argv[1]);
+  l_arrayFactor = atoi(argv[2]);
+  l_arraySteps = atoi(argv[3]); 
+  l_private = atoi(argv[4]);
+  l_iters_0 = atoi(argv[5]);
+
+
+#ifdef _OPENMP
+  #pragma omp parallel
+  {
+    #pragma omp master
+    l_numThreads = omp_get_num_threads();
+  }
+#else
+  l_numThreads = 1;
+#endif
+
+  if (l_arraySize_0 % 256 != 0) {
+    printf("ERROR % 256\n");
+    exit(-1);
+  }
+  
+  printf("Number of threads: %lld\n", l_numThreads);
+  if ( l_private == 0 ) {
+    printf("Using shared Read Buffer\n");
+  } else {
+    printf("Using private Read Buffer\n");
+    l_arraySize_0 *= l_numThreads;
+  }
+  printf("KiB-per-core-read,MiB/s,Time\n");
+ 
+  for ( i = 0 ; i < l_arraySteps; ++i ) {
+    double* l_data;
+    size_t l_n = 0;
+    double l_avgTime;
+    struct timeval l_startTime, l_endTime;
+    size_t l_arraySize = (i == 0) ? l_arraySize_0 : l_arraySize_0 * i * l_arrayFactor;
+    size_t l_iters = (i == 0) ? l_iters_0 : l_iters_0 / (i * l_arrayFactor);
+    double l_size = (l_private == 0) ? (double)((size_t)l_arraySize)*sizeof(double) : (double)((size_t)l_arraySize/l_numThreads)*sizeof(double);
+    // init data
+    posix_memalign((void**)&l_data, 2097152, ((size_t)l_arraySize)*sizeof(double));;
+
+    #pragma omp parallel for private(l_n)
+    for ( l_n = 0; l_n < l_arraySize; l_n++ ) {
+      l_data[l_n] = (double)l_n;
+    }
+
+    // pre-heat caches
+    run_benchmark( l_data, l_arraySize, l_private, 5 );
+    
+    // run benchmark
+    gettimeofday(&l_startTime, NULL);
+    run_benchmark( l_data, l_arraySize, l_private, l_iters );
     gettimeofday(&l_endTime, NULL);
     l_avgTime = sec(l_startTime, l_endTime);
 
