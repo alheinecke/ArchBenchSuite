@@ -80,12 +80,20 @@ void test_half_general(size_t m, size_t n, size_t k, size_t s, size_t r)
 	// host-side allocation
 	__half* h_A = NULL;
 	__half* h_B = NULL;
+#if 0
 	__half* h_C = NULL;
+#else
+        float* h_C = NULL;
+#endif
 
 	// Allocate memory on GFX
 	__half* d_A = NULL;
 	__half* d_B = NULL;
+#if 0
 	__half* d_C = NULL;
+#else
+	float* d_C = NULL;
+#endif
 	
 	double FLOPS = 0.0;
 	double TIME = 0.0;
@@ -113,13 +121,20 @@ void test_half_general(size_t m, size_t n, size_t k, size_t s, size_t r)
 		// init data on host
 		h_A = new __half[m*k];
 		h_B = new __half[k*n];
+#if 0
 		h_C = new __half[m*n];
-		
+#else
+		h_C = new float[m*n];
+#endif		
 		for (size_t j = 0; j < i*i; j++)
 		{
 			h_A[j] = __float2half(1.0);
 			h_B[j] = __float2half(1.0);
+#if 0
 			h_C[j] = __float2half(1.0);
+#else
+			h_C[j] = 1.0;
+#endif
 		}
 		
 #ifndef MEASURE_KERNEL
@@ -136,7 +151,11 @@ void test_half_general(size_t m, size_t n, size_t k, size_t s, size_t r)
 		printf ("!!!! device memory allocation error (B)\n");
 		}
 
+#if 0
 		cuerror = cudaMalloc((void**)&d_C, m*n*sizeof(__half));
+#else
+		cuerror = cudaMalloc((void**)&d_C, m*n*sizeof(float));
+#endif
 		if (cuerror != cudaSuccess) {
 			printf ("!!!! device memory allocation error (C)\n");
 		}
@@ -150,19 +169,30 @@ void test_half_general(size_t m, size_t n, size_t k, size_t s, size_t r)
 		if (status != CUBLAS_STATUS_SUCCESS) {
 			printf ("!!!! device access error (write B)\n");
 		}
-
+#if 0
 		status = cublasSetVector(m*n, sizeof(__half), h_C, 1, d_C, 1);
+#else
+		status = cublasSetVector(m*n, sizeof(float), h_C, 1, d_C, 1);
+#endif
 		if (status != CUBLAS_STATUS_SUCCESS) {
 			printf ("!!!! device access error (write C)\n");
 		}
                 __half alpha = __float2half(1.0);
+#if 0
 		__half beta  = __float2half(0.0);
+#else
+		float beta  = 0.0;
+#endif
 #ifdef MEASURE_KERNEL
 		timer_start();
 #endif
                 for ( int z = 0; z < s; ++z ) {
+#if 0
 		  cublasHgemm(handle, CUBLAS_OP_N, CUBLAS_OP_N, m, n, k, &alpha, d_A, m, d_B, k, &beta, d_C, m);
-                }
+#else
+		  cublasGemmEx(handle, CUBLAS_OP_N, CUBLAS_OP_N, m, n, k, &alpha, d_A, CUDA_R_16F, m, d_B, CUDA_R_16F, k, &beta, d_C, CUDA_R_32F, m, CUDA_R_32F, CUBLAS_GEMM_DEFAULT_TENSOR_OP);
+#endif     
+           }
                 cudaDeviceSynchronize();
 #ifdef MEASURE_KERNEL
 		TIME = timer_stop();
