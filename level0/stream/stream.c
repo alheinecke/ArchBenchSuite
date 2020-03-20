@@ -47,6 +47,7 @@
 # include <float.h>
 # include <limits.h>
 # include <sys/time.h>
+# include <unistd.h>
 
 /*-----------------------------------------------------------------------
  * INSTRUCTIONS:
@@ -177,7 +178,7 @@
 #define STREAM_TYPE double
 #endif
 
-#define USESTACK
+/*#define USESTACK*/
 #ifdef USESTACK
 static   STREAM_TYPE	a[STREAM_ARRAY_SIZE+OFFSET],
 			b[STREAM_ARRAY_SIZE+OFFSET],
@@ -205,8 +206,9 @@ static double	bytes[4] = {
 extern double mysecond();
 extern void checkSTREAMresults();
 
-#ifdef BENCH_AVX
+#ifdef __SSE3__
 #include <immintrin.h>
+#include <omp.h>
 #define TUNED
 #endif
 #ifdef BENCH_POWER8
@@ -239,9 +241,9 @@ main()
     /* --- SETUP --- determine precision and check timing --- */
 
 #ifndef USESTACK
-    posix_memalign((void**)&a, 4096, ((size_t)STREAM_ARRAY_SIZE)*sizeof(double));
-    posix_memalign((void**)&b, 4096, ((size_t)STREAM_ARRAY_SIZE)*sizeof(double));
-    posix_memalign((void**)&c, 4096, ((size_t)STREAM_ARRAY_SIZE)*sizeof(double));
+    posix_memalign((void**)&a, 2097152, ((size_t)STREAM_ARRAY_SIZE)*sizeof(double));
+    posix_memalign((void**)&b, 2097152, ((size_t)STREAM_ARRAY_SIZE)*sizeof(double));
+    posix_memalign((void**)&c, 2097152, ((size_t)STREAM_ARRAY_SIZE)*sizeof(double));
 #endif
 
     printf(HLINE);
@@ -395,10 +397,12 @@ main()
 	}
     
     printf("Function    Best Rate MB/s  Avg time     Min time     Max time\n");
+    char hostname[255];
+    gethostname(hostname, 255);
     for (j=0; j<4; j++) {
 		avgtime[j] = avgtime[j]/(double)(NTIMES-1);
 
-		printf("%s%12.1f  %11.6f  %11.6f  %11.6f\n", label[j],
+		printf("%s %s%12.1f  %11.6f  %11.6f  %11.6f\n", hostname, label[j],
 	       1.0E-06 * bytes[j]/mintime[j],
 	       avgtime[j],
 	       mintime[j],
