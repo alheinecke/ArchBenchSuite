@@ -27,8 +27,8 @@
 # SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.              #
 #############################################################################
 
-CC=icpc
-CFLAGS=-O3 -I${CUDAROOT}/include -ansi-alias
+CC=g++
+CFLAGS=-O3 -I${CUDAROOT}/include 
 LDFLAGS=-L${CUDAROOT}/lib64 -lcublas -lcudart
 
 default : cublas_test.cpp
