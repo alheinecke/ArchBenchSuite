@@ -33,12 +33,15 @@ CFLAGS = -O2 -fopenmp -DNTIMES=100 -DSTREAM_ARRAY_SIZE=64000000 -mcpu=power8 -fs
 #CFLAGS = -O2 -fopenmp -DNTIMES=100 -DSTREAM_ARRAY_SIZE=64000000 -mavx2 -fstrict-aliasing
 #CFLAGS = -O2 -fopenmp -DNTIMES=100 -DSTREAM_ARRAY_SIZE=64000000 -msse3 -fstrict-aliasing
 CC = icc
-CFLAGS = -O3 -xCOMMON-AVX512 -qopenmp -DNTIMES=1000 -DSTREAM_ARRAY_SIZE=1000000000 -qopt-streaming-cache-evict=0 -qopt-streaming-stores always -qopt-prefetch-distance=64,8 -qopenmp-link=static
+CFLAGS = -O3 -xCOMMON-AVX512 -qopenmp -DNTIMES=1000 -DSTREAM_ARRAY_SIZE=100000000 -qopt-streaming-cache-evict=0 -qopt-streaming-stores always -qopt-prefetch-distance=64,8 -qopenmp-link=static
 
 all: readbw.exe
 
 readbw.exe: readbw.c
 	$(CC) $(CFLAGS) readbw.c -o readbw.exe
+
+#readbw.exe: readbw.c counters.c
+#	$(CC) $(CFLAGS) readbw.c counters.c -o readbw.exe
 
 clean:
 	rm -f readbw.exe *.o

@@ -27,21 +27,28 @@
 ** SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.              **
 ******************************************************************************/
 
+#if 0
+#define USE_PERF_COUNTERS
+#endif
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/time.h>
+#ifdef USE_PERF_COUNTERS
+#include "counters.h"
+#endif
 
 #ifndef STREAM_ARRAY_SIZE
-#   define STREAM_ARRAY_SIZE	10000000
+#   define STREAM_ARRAY_SIZE	100000
 #endif
 
 #ifdef NTIMES
 #if NTIMES<=1
-#   define NTIMES	10
+#   define NTIMES	1000
 #endif
 #endif
 #ifndef NTIMES
-#   define NTIMES	10
+#   define NTIMES	1000
 #endif
 
 # ifndef MIN
@@ -65,6 +72,15 @@ int main(int argc, char* argv[]) {
   double l_size = (double)((size_t)STREAM_ARRAY_SIZE)*sizeof(double);
   double l_sum = (double)((size_t)STREAM_ARRAY_SIZE);
   struct timeval l_startTime, l_endTime;
+#ifdef USE_PERF_COUNTERS
+  ctrs_skx_uc a, b, s;
+  bw_gibs bw_min, bw_max, bw_avg;
+
+  setup_skx_uc_ctrs( CTRS_EXP_DRAM_CAS );
+  zero_skx_uc_ctrs( &a );
+  zero_skx_uc_ctrs( &b );
+  zero_skx_uc_ctrs( &s );
+#endif
 
   l_sum = ((l_sum*l_sum) + l_sum)/2;
   posix_memalign((void**)&l_data, 4096, ((size_t)STREAM_ARRAY_SIZE)*sizeof(double));
@@ -78,7 +94,10 @@ int main(int argc, char* argv[]) {
     l_data[l_n] = (double)l_n;
   }
 
-  // run benchmark
+#ifdef USE_PERF_COUNTERS
+  read_skx_uc_ctrs( &a );
+#endif
+   // run benchmark
   for( l_i = 0; l_i < NTIMES; l_i++ ) {
     l_result = 0.0;
     gettimeofday(&l_startTime, NULL);
@@ -94,11 +113,15 @@ int main(int argc, char* argv[]) {
       #pragma omp atomic
       l_result += l_res;
     }
-
     gettimeofday(&l_endTime, NULL);
     l_times[l_i] = sec(l_startTime, l_endTime);
   }
-
+#ifdef USE_PERF_COUNTERS
+  read_skx_uc_ctrs( &b );
+  difa_skx_uc_ctrs( &a, &b, &s );
+  divi_skx_uc_ctrs( &s, NTIMES );
+#endif
+ 
   // postprocess timing
   l_avgTime = 0.0;
   l_minTime = 100000.0;
@@ -111,9 +134,17 @@ int main(int argc, char* argv[]) {
   l_avgTime /= (double)NTIMES;
   
   // output
-  printf("AVG MiB/s: %f\n", (l_size/(1024.0*1024.0))/l_avgTime);
-  printf("MAX MiB/s: %f\n", (l_size/(1024.0*1024.0))/l_minTime);
-  printf("MIN MiB/s: %f\n", (l_size/(1024.0*1024.0))/l_maxTime);
+  printf("AVG GiB/s: %f\n", (l_size/(1024.0*1024.0*1024.0))/l_avgTime);
+  printf("MAX GiB/s: %f\n", (l_size/(1024.0*1024.0*1024.0))/l_minTime);
+  printf("MIN GiB/s: %f\n", (l_size/(1024.0*1024.0*1024.0))/l_maxTime);
+#ifdef USE_PERF_COUNTERS
+  get_cas_ddr_bw_skx( &s, l_maxTime, &bw_min );
+  get_cas_ddr_bw_skx( &s, l_minTime, &bw_max );
+  get_cas_ddr_bw_skx( &s, l_avgTime, &bw_avg );
+  printf("AVG GiB/s: %f\n", bw_avg.rd);
+  printf("MAX GiB/s: %f\n", bw_max.rd);
+  printf("MIN GiB/s: %f\n", bw_min.rd);
+#endif
 
   if((l_result/l_sum)-1 < 1e-10) {
     printf("PASSED, %f\n", (l_result/l_sum)-1);
