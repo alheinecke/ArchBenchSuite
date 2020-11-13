@@ -140,8 +140,8 @@ void setup_skx_uc_ctrs( ctrs_skx_uc_exp exp ) {
       evsetup(fname, &gbl_perf_fd.fd_vert_ring_bl_in_use_dn[cha], 0xAA, 0x0C);
       evsetup(fname, &gbl_perf_fd.fd_cha_clockticks[cha], 0x00, 0x00);
     } else if ( exp == CTRS_EXP_CHA_BL_HORZ ) {
-      evsetup(fname, &gbl_perf_fd.fd_horz_ring_bl_in_use_lf[cha], 0xAA, 0x03);
-      evsetup(fname, &gbl_perf_fd.fd_horz_ring_bl_in_use_rt[cha], 0xAA, 0x0C);
+      evsetup(fname, &gbl_perf_fd.fd_horz_ring_bl_in_use_lf[cha], 0xAB, 0x03);
+      evsetup(fname, &gbl_perf_fd.fd_horz_ring_bl_in_use_rt[cha], 0xAB, 0x0C);
       evsetup(fname, &gbl_perf_fd.fd_cha_clockticks[cha], 0x00, 0x00);
     } else {
       /* nothing */
