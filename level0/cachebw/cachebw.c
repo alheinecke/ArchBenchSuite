@@ -349,7 +349,7 @@ int main(int argc, char* argv[]) {
     printf("Using private Read Buffer\n");
     l_arraySize_0 *= l_numThreads;
   }
-  printf("KiB-per-core-read,MiB/s,Time\n");
+  printf("KiB-per-core-read,GiB/s,Time\n");
  
   for ( i = 0 ; i < l_arraySteps; ++i ) {
     double* l_data;
