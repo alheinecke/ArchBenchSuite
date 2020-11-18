@@ -181,7 +181,7 @@ void test_half_general(size_t m, size_t n, size_t k, size_t s, size_t r)
 #if 0
 		__half beta  = __float2half(0.0);
 #else
-		float beta  = 0.0;
+		float beta  = 1.0;
 #endif
 #ifdef MEASURE_KERNEL
 		timer_start();
