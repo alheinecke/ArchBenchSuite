@@ -29,6 +29,9 @@
 
 #if 0
 #define USE_PERF_COUNTERS
+#if 0
+#define USE_DRAM_COUNTERS
+#endif
 #endif
 
 #include <stdio.h>
@@ -76,7 +79,11 @@ int main(int argc, char* argv[]) {
   ctrs_skx_uc a, b, s;
   bw_gibs bw_min, bw_max, bw_avg;
 
+#ifdef USE_DRAM_COUNTERS
   setup_skx_uc_ctrs( CTRS_EXP_DRAM_CAS );
+#else
+  setup_skx_uc_ctrs( CTRS_EXP_CHA_LLC_LOOKUP );
+#endif
   zero_skx_uc_ctrs( &a );
   zero_skx_uc_ctrs( &b );
   zero_skx_uc_ctrs( &s );
@@ -138,9 +145,15 @@ int main(int argc, char* argv[]) {
   printf("MAX GiB/s: %f\n", (l_size/(1024.0*1024.0*1024.0))/l_minTime);
   printf("MIN GiB/s: %f\n", (l_size/(1024.0*1024.0*1024.0))/l_maxTime);
 #ifdef USE_PERF_COUNTERS
+#ifdef USE_DRAM_COUNTERS
   get_cas_ddr_bw_skx( &s, l_maxTime, &bw_min );
   get_cas_ddr_bw_skx( &s, l_minTime, &bw_max );
   get_cas_ddr_bw_skx( &s, l_avgTime, &bw_avg );
+#else
+  get_llc_bw_skx( &s, l_maxTime, &bw_min );
+  get_llc_bw_skx( &s, l_minTime, &bw_max );
+  get_llc_bw_skx( &s, l_avgTime, &bw_avg );
+#endif
   printf("AVG GiB/s: %f\n", bw_avg.rd);
   printf("MAX GiB/s: %f\n", bw_max.rd);
   printf("MIN GiB/s: %f\n", bw_min.rd);

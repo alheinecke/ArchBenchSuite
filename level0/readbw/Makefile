@@ -37,11 +37,11 @@ CFLAGS = -O3 -xCOMMON-AVX512 -qopenmp -DNTIMES=1000 -DSTREAM_ARRAY_SIZE=10000000
 
 all: readbw.exe
 
-readbw.exe: readbw.c
-	$(CC) $(CFLAGS) readbw.c -o readbw.exe
+#readbw.exe: readbw.c
+#	$(CC) $(CFLAGS) readbw.c -o readbw.exe
 
-#readbw.exe: readbw.c counters.c
-#	$(CC) $(CFLAGS) readbw.c counters.c -o readbw.exe
+readbw.exe: readbw.c counters.c
+	$(CC) $(CFLAGS) readbw.c counters.c -o readbw.exe
 
 clean:
 	rm -f readbw.exe *.o
