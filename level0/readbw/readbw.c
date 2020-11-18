@@ -38,7 +38,7 @@
 #include <stdlib.h>
 #include <sys/time.h>
 #ifdef USE_PERF_COUNTERS
-#include "counters.h"
+#include "./../common/counters.h"
 #endif
 
 #ifndef STREAM_ARRAY_SIZE

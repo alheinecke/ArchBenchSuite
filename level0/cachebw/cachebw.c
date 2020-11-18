@@ -1,5 +1,5 @@
 /******************************************************************************
-** Copyright (c) 2013-2018, Alexander Heinecke                               **
+** Copyright (c) 2013-2020, Alexander Heinecke                               **
 ** All rights reserved.                                                      **
 **                                                                           **
 ** Redistribution and use in source and binary forms, with or without        **
@@ -27,11 +27,18 @@
 ** SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.              **
 ******************************************************************************/
 
+#if 0
+#define USE_PERF_COUNTERS
+#endif
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/time.h>
 #ifdef _OPENMP
 #include <omp.h>
+#endif
+#ifdef USE_PERF_COUNTERS
+#include "./../common/counters.h"
 #endif
 
 #ifdef NTIMES
@@ -297,6 +304,16 @@ int main(int argc, char* argv[]) {
   size_t l_iters_0 = 1;
   size_t l_private = 0;
   size_t i = 0;
+#ifdef USE_PERF_COUNTERS
+  ctrs_skx_uc a, b, s;
+  bw_gibs bw_cnt;
+
+  setup_skx_uc_ctrs( CTRS_EXP_CHA_LLC_LOOKUP );
+  zero_skx_uc_ctrs( &a );
+  zero_skx_uc_ctrs( &b );
+  zero_skx_uc_ctrs( &s );
+#endif
+
 
   if (argc != 6) {
     printf("#doubles increase-factor increase-steps private={0/NNZ} #reps\n");
@@ -354,17 +371,27 @@ int main(int argc, char* argv[]) {
     run_benchmark( l_data, l_arraySize, l_private, 5 );
     
     // run benchmark
+#ifdef USE_PERF_COUNTERS
+    read_skx_uc_ctrs( &a );
+#endif
     gettimeofday(&l_startTime, NULL);
     run_benchmark( l_data, l_arraySize, l_private, l_iters );
     gettimeofday(&l_endTime, NULL);
     l_avgTime = sec(l_startTime, l_endTime);
-
+#ifdef USE_PERF_COUNTERS
+    read_skx_uc_ctrs( &b );
+    difa_skx_uc_ctrs( &a, &b, &s );
+    divi_skx_uc_ctrs( &s, l_iters );
+#endif
     // postprocess timing 
     l_avgTime /= (double)l_iters;
     
     // output
-    printf("%f,%f,%f\n", l_size/1024.0, ((l_size*l_numThreads)/(1024.0*1024.0))/l_avgTime, l_avgTime);
-
+    printf("%f,%f,%f\n", l_size/1024.0, ((l_size*l_numThreads)/(1024.0*1024.0*1024.0))/l_avgTime, l_avgTime);
+#ifdef USE_PERF_COUNTERS
+    get_llc_bw_skx( &s, l_avgTime, &bw_cnt );
+    printf("%f,%f,%f (counters)\n", l_size/1024.0, bw_cnt.rd, l_avgTime);
+#endif
     free(l_data);
   }
   return 0; 
