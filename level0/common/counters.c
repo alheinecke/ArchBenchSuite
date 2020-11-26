@@ -161,8 +161,9 @@ void setup_skx_uc_ctrs( ctrs_skx_uc_exp exp ) {
       evsetup(fname, &gbl_perf_fd.fd_cha_clockticks[cha], 0x00, 0x00, 0x00, 0x00);
     } else if ( exp == CTRS_EXP_CHA_LLC_LOOKUP_VICTIMS ) {
       evsetup(fname, &gbl_perf_fd.fd_llc_lookup_rd[cha], 0x34, 0x03, 0x01e20000, 0x10); /* F,M,E,S,I LLC and NM */
-      evsetup(fname, &gbl_perf_fd.fd_llc_lookup_wr[cha], 0x34, 0x05, 0x01e20000, 0x10); /* F,M,E,S,I LLC and NM */
-      evsetup(fname, &gbl_perf_fd.fd_llc_victims[cha],   0x37, 0xaf, 0x00000000, 0x00); /* F,M,E,S,I LLC and NM */
+      evsetup(fname, &gbl_perf_fd.fd_llc_lookup_wr[cha], 0x34, 0x05, 0x01e20000, 0x3b); /* F,M,E,S,I LLC and NM */
+      evsetup(fname, &gbl_perf_fd.fd_llc_victims[cha],   0x37, 0x2f, 0x00000000, 0x00); /* F,M,E,S,I LLC and NM */
+      /*evsetup(fname, &gbl_perf_fd.fd_llc_victims[cha],   0x34, 0x11, 0x01e20000, 0x10);*/ /* F,M,E,S,I LLC and NM */
       evsetup(fname, &gbl_perf_fd.fd_cha_clockticks[cha], 0x00, 0x00, 0x00, 0x00);
     } else {
       /* nothing */

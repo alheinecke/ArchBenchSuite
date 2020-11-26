@@ -27,12 +27,20 @@
 ** SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.              **
 ******************************************************************************/
 
+#if 0
+#define USE_PERF_COUNTERS
+#endif
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/time.h>
 
 #ifdef _OPENMP
 #include <omp.h>
+#endif
+
+#ifdef USE_PERF_COUNTERS
+#include "./../common/counters.h"
 #endif
 
 #ifndef STREAM_ARRAY_SIZE
@@ -68,6 +76,15 @@ int main(int argc, char* argv[]) {
   double l_avgTime, l_minTime, l_maxTime;
   double l_size = (double)((size_t)STREAM_ARRAY_SIZE)*sizeof(double);
   struct timeval l_startTime, l_endTime;
+#ifdef USE_PERF_COUNTERS
+  ctrs_skx_uc a, b, s;
+  bw_gibs bw_cnt;
+
+  setup_skx_uc_ctrs( CTRS_EXP_CHA_LLC_LOOKUP_VICTIMS );
+  zero_skx_uc_ctrs( &a );
+  zero_skx_uc_ctrs( &b );
+  zero_skx_uc_ctrs( &s );
+#endif
 
   posix_memalign((void**)&l_data, 4096, ((size_t)STREAM_ARRAY_SIZE)*sizeof(double));
   l_times = (double*)malloc(sizeof(double)*NTIMES);
@@ -82,6 +99,9 @@ int main(int argc, char* argv[]) {
 
   // run benchmark
   for( l_i = 0; l_i < NTIMES; l_i++ ) {
+#ifdef USE_PERF_COUNTERS
+    read_skx_uc_ctrs( &a );
+#endif
     gettimeofday(&l_startTime, NULL);
 
     // we do manual reduction here as we don't rely on a smart OpenMP implementation
@@ -95,6 +115,11 @@ int main(int argc, char* argv[]) {
     }
 
     gettimeofday(&l_endTime, NULL);
+#ifdef USE_PERF_COUNTERS
+    read_skx_uc_ctrs( &b );
+    difa_skx_uc_ctrs( &a, &b, &s );
+    divi_skx_uc_ctrs( &s, NTIMES );
+#endif
     l_times[l_i] = sec(l_startTime, l_endTime);
   }
 
@@ -113,6 +138,10 @@ int main(int argc, char* argv[]) {
   printf("AVG MiB/s: %f\n", (l_size/(1024.0*1024.0))/l_avgTime);
   printf("MAX MiB/s: %f\n", (l_size/(1024.0*1024.0))/l_minTime);
   printf("MIN MiB/s: %f\n", (l_size/(1024.0*1024.0))/l_maxTime);
-
+#ifdef USE_PERF_COUNTERS
+  get_llc_bw_skx( &s, l_avgTime, &bw_cnt );
+  printf("%f,%f,%f,%f,%f (counters)\n", l_size/1024.0, bw_cnt.rd, bw_cnt.wr, bw_cnt.wr2, l_avgTime);
+#endif
+ 
   return 0; 
 }

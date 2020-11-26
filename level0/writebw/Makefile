@@ -34,11 +34,15 @@ CFLAGS = -O2 -fopenmp -DNTIMES=100 -DSTREAM_ARRAY_SIZE=64000000 -mcpu=power8 -fs
 #CFLAGS = -O2 -fopenmp -DNTIMES=100 -DSTREAM_ARRAY_SIZE=64000000 -msse3 -fstrict-aliasing
 CC = icc
 CFLAGS = -O3 -xCOMMON-AVX512 -qopenmp -DNTIMES=100 -DSTREAM_ARRAY_SIZE=1000000000 -qopt-streaming-cache-evict=0 -qopt-streaming-stores always -qopt-prefetch-distance=64,8
+CFLAGS = -O3 -xCOMMON-AVX512 -qopenmp -DNTIMES=100000 -DSTREAM_ARRAY_SIZE=4000000 -qopt-streaming-cache-evict=0 -qopt-streaming-stores always -qopt-prefetch-distance=64,8
 
 all: writebw.exe
 
-writebw.exe: writebw.c
-	$(CC) $(CFLAGS) writebw.c -o writebw.exe
+#writebw.exe: writebw.c
+#	$(CC) $(CFLAGS) writebw.c -o writebw.exe
+
+writebw.exe: writebw.c ./../common/counters.c
+	$(CC) $(CFLAGS) writebw.c ./../common/counters.c -o writebw.exe
 
 clean:
 	rm -f writebw.exe *.o
