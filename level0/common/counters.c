@@ -58,6 +58,7 @@ typedef struct perf_skx_uc_fd{
   int fd_horz_ring_bl_in_use_rt[SKX_NCHA];
   int fd_llc_lookup_rd[SKX_NCHA];
   int fd_llc_lookup_wr[SKX_NCHA];
+  int fd_llc_victims[SKX_NCHA];
   int fd_cha_clockticks[SKX_NCHA];
   ctrs_skx_uc_exp exp;
 } perf_skx_uc_fd;
@@ -93,8 +94,8 @@ void evsetup(const char *ename, int *fd, unsigned int event, unsigned int umask,
   struct perf_event_attr hw = {};
   hw.size = sizeof(hw);
   hw.type = type;
-#if 0
-  see /sys/devices/uncore_*/format/*
+/*
+  see /sys/devices/uncore_?/format/?
   Although are events we are using here are configured in the same way, 
   we should read the format.
 
@@ -104,15 +105,18 @@ void evsetup(const char *ename, int *fd, unsigned int event, unsigned int umask,
 
   on two socket system we would need to create a second set for the 
   second socket
-#endif
+*/
+
   hw.config   = event | (umask << 8);
   filter0_64 = (uint64_t)filter0;
   filter1_64 = (uint64_t)filter1;
   filter0_64 |= filter1_64 << 32;
   hw.config1  = filter0_64;
-#if 0
+
+/*
   printf("0x%llx\n", hw.config1 );
-#endif
+*/
+
   int cpu = 0;
   int pid = -1;
   *fd = perf_event_open(&hw, pid, cpu, -1, 0);
@@ -155,9 +159,10 @@ void setup_skx_uc_ctrs( ctrs_skx_uc_exp exp ) {
       evsetup(fname, &gbl_perf_fd.fd_horz_ring_bl_in_use_lf[cha], 0xAB, 0x03, 0x00, 0x00);
       evsetup(fname, &gbl_perf_fd.fd_horz_ring_bl_in_use_rt[cha], 0xAB, 0x0C, 0x00, 0x00);
       evsetup(fname, &gbl_perf_fd.fd_cha_clockticks[cha], 0x00, 0x00, 0x00, 0x00);
-    } else if ( exp == CTRS_EXP_CHA_LLC_LOOKUP ) {
+    } else if ( exp == CTRS_EXP_CHA_LLC_LOOKUP_VICTIMS ) {
       evsetup(fname, &gbl_perf_fd.fd_llc_lookup_rd[cha], 0x34, 0x03, 0x01e20000, 0x10); /* F,M,E,S,I LLC and NM */
       evsetup(fname, &gbl_perf_fd.fd_llc_lookup_wr[cha], 0x34, 0x05, 0x01e20000, 0x10); /* F,M,E,S,I LLC and NM */
+      evsetup(fname, &gbl_perf_fd.fd_llc_victims[cha],   0x37, 0xaf, 0x00000000, 0x00); /* F,M,E,S,I LLC and NM */
       evsetup(fname, &gbl_perf_fd.fd_cha_clockticks[cha], 0x00, 0x00, 0x00, 0x00);
     } else {
       /* nothing */
@@ -207,9 +212,10 @@ void read_skx_uc_ctrs( ctrs_skx_uc *c ) {
       c->horz_ring_bl_in_use_lf[cha] = readctr(gbl_perf_fd.fd_horz_ring_bl_in_use_lf[cha]);
       c->horz_ring_bl_in_use_rt[cha] = readctr(gbl_perf_fd.fd_horz_ring_bl_in_use_rt[cha]);
       c->cha_clockticks[cha] = readctr(gbl_perf_fd.fd_cha_clockticks[cha]);
-    } else if ( gbl_perf_fd.exp == CTRS_EXP_CHA_LLC_LOOKUP ) {
+    } else if ( gbl_perf_fd.exp == CTRS_EXP_CHA_LLC_LOOKUP_VICTIMS ) {
       c->llc_lookup_rd[cha] = readctr(gbl_perf_fd.fd_llc_lookup_rd[cha]);
       c->llc_lookup_wr[cha] = readctr(gbl_perf_fd.fd_llc_lookup_wr[cha]);
+      c->llc_victims[cha] = readctr(gbl_perf_fd.fd_llc_victims[cha]);
       c->cha_clockticks[cha] = readctr(gbl_perf_fd.fd_cha_clockticks[cha]);
     } else {
       /* nothing */
@@ -238,6 +244,7 @@ void zero_skx_uc_ctrs( ctrs_skx_uc *c ) {
     c->horz_ring_bl_in_use_rt[cha] = 0;
     c->llc_lookup_rd[cha] = 0;
     c->llc_lookup_wr[cha] = 0;
+    c->llc_victims[cha] = 0;
     c->cha_clockticks[cha] = 0;
   }
 }
@@ -261,6 +268,7 @@ void divi_skx_uc_ctrs( ctrs_skx_uc *c, uint64_t div ) {
     c->horz_ring_bl_in_use_rt[cha] /= div;
     c->llc_lookup_rd[cha] /= div;
     c->llc_lookup_wr[cha] /= div;
+    c->llc_victims[cha] /= div;
     c->cha_clockticks[cha] /= div;
   }
 }
@@ -290,6 +298,7 @@ void difa_skx_uc_ctrs( const ctrs_skx_uc *a, const ctrs_skx_uc *b, ctrs_skx_uc* 
     c->horz_ring_bl_in_use_rt[cha] += b->horz_ring_bl_in_use_rt[cha] - a->horz_ring_bl_in_use_rt[cha];
     c->llc_lookup_rd[cha] += b->llc_lookup_rd[cha] - a->llc_lookup_rd[cha];
     c->llc_lookup_wr[cha] += b->llc_lookup_wr[cha] - a->llc_lookup_wr[cha];
+    c->llc_victims[cha] += b->llc_victims[cha] - a->llc_victims[cha];
     c->cha_clockticks[cha] += b->cha_clockticks[cha] - a->cha_clockticks[cha];
   }
 
@@ -308,6 +317,7 @@ void get_cas_ddr_bw_skx( const ctrs_skx_uc *c, const double t, bw_gibs* bw ) {
     printf("exp type need to be CTRS_EXP_DRAM_CAS!\n");
     bw->rd = 0;
     bw->wr = 0;
+    bw->wr2 = 0;
     return;
   }
    
@@ -318,30 +328,36 @@ void get_cas_ddr_bw_skx( const ctrs_skx_uc *c, const double t, bw_gibs* bw ) {
 
   bw->rd = (((double)read_bytes )/t)/(1024.0*1024.0*1024.0);
   bw->wr = (((double)write_bytes)/t)/(1024.0*1024.0*1024.0);
+  bw->wr2 = 0;
 }
 
 void get_llc_bw_skx( const ctrs_skx_uc *c, const double t, bw_gibs* bw ) {
   uint64_t read_bytes;
   uint64_t write_bytes;
+  uint64_t victim_bytes;
   int cha;
   
   read_bytes  = 0;
   write_bytes = 0;
+  victim_bytes = 0;
 
-  if ( c->exp != CTRS_EXP_CHA_LLC_LOOKUP ) { 
+  if ( c->exp != CTRS_EXP_CHA_LLC_LOOKUP_VICTIMS ) { 
     printf("exp type need to be CTRS_EXP_CHA_LLC_LOOKUP!\n");
     bw->rd = 0;
     bw->wr = 0;
+    bw->wr2 = 0;
     return;
   }
    
   for ( cha = 0; cha < SKX_NCHA; ++cha ) {
     read_bytes  += c->llc_lookup_rd[cha]*64;
     write_bytes += c->llc_lookup_wr[cha]*64;
+    victim_bytes += c->llc_victims[cha]*64;
   }
 
   bw->rd = (((double)read_bytes )/t)/(1024.0*1024.0*1024.0);
   bw->wr = (((double)write_bytes)/t)/(1024.0*1024.0*1024.0);
+  bw->wr2 = (((double)victim_bytes)/t)/(1024.0*1024.0*1024.0);
 }
 
 #ifdef __cplusplus

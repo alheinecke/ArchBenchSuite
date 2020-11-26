@@ -308,7 +308,7 @@ int main(int argc, char* argv[]) {
   ctrs_skx_uc a, b, s;
   bw_gibs bw_cnt;
 
-  setup_skx_uc_ctrs( CTRS_EXP_CHA_LLC_LOOKUP );
+  setup_skx_uc_ctrs( CTRS_EXP_CHA_LLC_LOOKUP_VICTIMS );
   zero_skx_uc_ctrs( &a );
   zero_skx_uc_ctrs( &b );
   zero_skx_uc_ctrs( &s );
@@ -390,7 +390,7 @@ int main(int argc, char* argv[]) {
     printf("%f,%f,%f\n", l_size/1024.0, ((l_size*l_numThreads)/(1024.0*1024.0*1024.0))/l_avgTime, l_avgTime);
 #ifdef USE_PERF_COUNTERS
     get_llc_bw_skx( &s, l_avgTime, &bw_cnt );
-    printf("%f,%f,%f (counters)\n", l_size/1024.0, bw_cnt.rd, l_avgTime);
+    printf("%f,%f,%f,%f,%f (counters)\n", l_size/1024.0, bw_cnt.rd, bw_cnt.wr, bw_cnt.wr2, l_avgTime);
 #endif
     free(l_data);
   }

@@ -46,7 +46,7 @@ typedef enum ctrs_skx_uc_exp {
   CTRS_EXP_CHA_ACT,
   CTRS_EXP_CHA_BL_VERT,
   CTRS_EXP_CHA_BL_HORZ,
-  CTRS_EXP_CHA_LLC_LOOKUP
+  CTRS_EXP_CHA_LLC_LOOKUP_VICTIMS
 } ctrs_skx_uc_exp;
 
 typedef struct ctrs_skx_uc
@@ -64,6 +64,7 @@ typedef struct ctrs_skx_uc
   uint64_t horz_ring_bl_in_use_rt[SKX_NCHA];
   uint64_t llc_lookup_rd[SKX_NCHA];
   uint64_t llc_lookup_wr[SKX_NCHA];
+  uint64_t llc_victims[SKX_NCHA];
   uint64_t cha_clockticks[SKX_NCHA];
   ctrs_skx_uc_exp exp;
 } ctrs_skx_uc;
@@ -71,6 +72,7 @@ typedef struct ctrs_skx_uc
 typedef struct bw_gibs {
   double rd;
   double wr;
+  double wr2;
 } bw_gibs;
 
 void setup_skx_uc_ctrs( ctrs_skx_uc_exp exp );
