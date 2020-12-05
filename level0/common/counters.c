@@ -63,7 +63,17 @@ typedef struct perf_skx_uc_fd{
   ctrs_skx_uc_exp exp;
 } perf_skx_uc_fd;
 
-static perf_skx_uc_fd gbl_perf_fd;
+typedef struct perf_skx_core_fd
+{
+  int fd_l2_lines_in[SKX_NCORE];
+  int fd_l2_lines_out_ns[SKX_NCORE];
+  int fd_idi_misc_wb_up[SKX_NCORE];
+  int fd_idi_misc_wb_down[SKX_NCORE];
+  ctrs_skx_core_exp exp;
+} perf_skx_core_fd;
+
+static perf_skx_uc_fd gbl_uc_perf_fd;
+static perf_skx_core_fd gbl_core_perf_fd;
 
 static int perf_event_open(struct perf_event_attr *hw_event, pid_t pid,
                 int cpu, int group_fd, unsigned long flags) {
@@ -73,7 +83,7 @@ static int perf_event_open(struct perf_event_attr *hw_event, pid_t pid,
   return ret;
 }
 
-void evsetup(const char *ename, int *fd, unsigned int event, unsigned int umask, unsigned int filter0, unsigned int filter1) {
+void evsetup(const char *ename, int *fd, unsigned int event, unsigned int umask, unsigned int filter0, unsigned int filter1, int core ) {
   char fname[1024];
   snprintf(fname, sizeof(fname), "%s/type", ename);
   FILE *fp = fopen(fname, "r");
@@ -84,6 +94,8 @@ void evsetup(const char *ename, int *fd, unsigned int event, unsigned int umask,
   int ret = fscanf(fp, "%d", &type);
   uint64_t filter0_64;
   uint64_t filter1_64;
+  int cpu;
+  int pid;
 
   assert(ret == 1);
   fclose(fp);
@@ -117,8 +129,14 @@ void evsetup(const char *ename, int *fd, unsigned int event, unsigned int umask,
   printf("0x%llx\n", hw.config1 );
 */
 
-  int cpu = 0;
-  int pid = -1;
+  if ( core < 0 ) {
+    cpu = 0;
+    pid = -1;
+  } else {
+    cpu = core;
+    pid = -1;
+  }
+
   *fd = perf_event_open(&hw, pid, cpu, -1, 0);
   if (*fd == -1) {
     err(1, "CPU %d, box %s, event 0x%lx", cpu, ename, hw.config);
@@ -133,13 +151,13 @@ void setup_skx_uc_ctrs( ctrs_skx_uc_exp exp ) {
   for ( mc = 0; mc < SKX_NIMC; ++mc ) {
     snprintf(fname, sizeof(fname), "/sys/devices/uncore_imc_%d",mc);
     if ( exp == CTRS_EXP_DRAM_ACT ) {
-      evsetup(fname, &gbl_perf_fd.fd_act_rd[mc], 0x01, 0x01, 0x00, 0x00);
-      evsetup(fname, &gbl_perf_fd.fd_act_wr[mc], 0x01, 0x02, 0x00, 0x00);
-      evsetup(fname, &gbl_perf_fd.fd_imc_clockticks[mc], 0x00, 0x00, 0x00, 0x00);
+      evsetup(fname, &gbl_uc_perf_fd.fd_act_rd[mc], 0x01, 0x01, 0x00, 0x00, -1);
+      evsetup(fname, &gbl_uc_perf_fd.fd_act_wr[mc], 0x01, 0x02, 0x00, 0x00, -1);
+      evsetup(fname, &gbl_uc_perf_fd.fd_imc_clockticks[mc], 0x00, 0x00, 0x00, 0x00, -1);
     } else if ( exp == CTRS_EXP_DRAM_CAS ) {
-      evsetup(fname, &gbl_perf_fd.fd_cas_rd[mc], 0x04, 0x03, 0x00, 0x00);
-      evsetup(fname, &gbl_perf_fd.fd_cas_wr[mc], 0x04, 0x0C, 0x00, 0x00);
-      evsetup(fname, &gbl_perf_fd.fd_imc_clockticks[mc], 0x00, 0x00, 0x00, 0x00);
+      evsetup(fname, &gbl_uc_perf_fd.fd_cas_rd[mc], 0x04, 0x03, 0x00, 0x00, -1);
+      evsetup(fname, &gbl_uc_perf_fd.fd_cas_wr[mc], 0x04, 0x0C, 0x00, 0x00, -1);
+      evsetup(fname, &gbl_uc_perf_fd.fd_imc_clockticks[mc], 0x00, 0x00, 0x00, 0x00, -1);
     } else {
       /* nothing */
     }
@@ -148,29 +166,49 @@ void setup_skx_uc_ctrs( ctrs_skx_uc_exp exp ) {
   for ( cha = 0; cha < SKX_NCHA; ++cha ) {
     snprintf(fname, sizeof(fname), "/sys/devices/uncore_cha_%d",cha);
     if ( exp == CTRS_EXP_CHA_ACT ) {
-      evsetup(fname, &gbl_perf_fd.fd_cha_rd[cha], 0x50, 0x03, 0x00, 0x00);
-      evsetup(fname, &gbl_perf_fd.fd_cha_wr[cha], 0x50, 0x0C, 0x00, 0x00);
-      evsetup(fname, &gbl_perf_fd.fd_cha_clockticks[cha], 0x00, 0x00, 0x00, 0x00);
+      evsetup(fname, &gbl_uc_perf_fd.fd_cha_rd[cha], 0x50, 0x03, 0x00, 0x00, -1);
+      evsetup(fname, &gbl_uc_perf_fd.fd_cha_wr[cha], 0x50, 0x0C, 0x00, 0x00, -1);
+      evsetup(fname, &gbl_uc_perf_fd.fd_cha_clockticks[cha], 0x00, 0x00, 0x00, 0x00, -1);
     } else if ( exp == CTRS_EXP_CHA_BL_VERT ) {
-      evsetup(fname, &gbl_perf_fd.fd_vert_ring_bl_in_use_up[cha], 0xAA, 0x03, 0x00, 0x00);
-      evsetup(fname, &gbl_perf_fd.fd_vert_ring_bl_in_use_dn[cha], 0xAA, 0x0C, 0x00, 0x00);
-      evsetup(fname, &gbl_perf_fd.fd_cha_clockticks[cha], 0x00, 0x00, 0x00, 0x00);
+      evsetup(fname, &gbl_uc_perf_fd.fd_vert_ring_bl_in_use_up[cha], 0xAA, 0x03, 0x00, 0x00, -1);
+      evsetup(fname, &gbl_uc_perf_fd.fd_vert_ring_bl_in_use_dn[cha], 0xAA, 0x0C, 0x00, 0x00, -1);
+      evsetup(fname, &gbl_uc_perf_fd.fd_cha_clockticks[cha], 0x00, 0x00, 0x00, 0x00, -1);
     } else if ( exp == CTRS_EXP_CHA_BL_HORZ ) {
-      evsetup(fname, &gbl_perf_fd.fd_horz_ring_bl_in_use_lf[cha], 0xAB, 0x03, 0x00, 0x00);
-      evsetup(fname, &gbl_perf_fd.fd_horz_ring_bl_in_use_rt[cha], 0xAB, 0x0C, 0x00, 0x00);
-      evsetup(fname, &gbl_perf_fd.fd_cha_clockticks[cha], 0x00, 0x00, 0x00, 0x00);
+      evsetup(fname, &gbl_uc_perf_fd.fd_horz_ring_bl_in_use_lf[cha], 0xAB, 0x03, 0x00, 0x00, -1);
+      evsetup(fname, &gbl_uc_perf_fd.fd_horz_ring_bl_in_use_rt[cha], 0xAB, 0x0C, 0x00, 0x00, -1);
+      evsetup(fname, &gbl_uc_perf_fd.fd_cha_clockticks[cha], 0x00, 0x00, 0x00, 0x00, -1);
     } else if ( exp == CTRS_EXP_CHA_LLC_LOOKUP_VICTIMS ) {
-      evsetup(fname, &gbl_perf_fd.fd_llc_lookup_rd[cha], 0x34, 0x03, 0x01e20000, 0x10); /* F,M,E,S,I LLC and NM */
-      evsetup(fname, &gbl_perf_fd.fd_llc_lookup_wr[cha], 0x34, 0x05, 0x01e20000, 0x3b); /* F,M,E,S,I LLC and NM */
-      evsetup(fname, &gbl_perf_fd.fd_llc_victims[cha],   0x37, 0x2f, 0x00000000, 0x00); /* F,M,E,S,I LLC and NM */
-      /*evsetup(fname, &gbl_perf_fd.fd_llc_victims[cha],   0x34, 0x11, 0x01e20000, 0x10);*/ /* F,M,E,S,I LLC and NM */
-      evsetup(fname, &gbl_perf_fd.fd_cha_clockticks[cha], 0x00, 0x00, 0x00, 0x00);
+      evsetup(fname, &gbl_uc_perf_fd.fd_llc_lookup_rd[cha], 0x34, 0x03, 0x01e20000, 0x10, -1); /* F,M,E,S,I LLC and NM */
+      evsetup(fname, &gbl_uc_perf_fd.fd_llc_lookup_wr[cha], 0x34, 0x05, 0x01e20000, 0x3b, -1); /* F,M,E,S,I LLC and NM */
+      evsetup(fname, &gbl_uc_perf_fd.fd_llc_victims[cha],   0x37, 0x2f, 0x00000000, 0x00, -1); /* F,M,E,S,I LLC and NM */
+      /*evsetup(fname, &gbl_uc_perf_fd.fd_llc_victims[cha],   0x34, 0x11, 0x01e20000, 0x10, -1);*/ /* F,M,E,S,I LLC and NM */
+      evsetup(fname, &gbl_uc_perf_fd.fd_cha_clockticks[cha], 0x00, 0x00, 0x00, 0x00, -1);
     } else {
       /* nothing */
     }
   }
 
-  gbl_perf_fd.exp = exp;
+  gbl_uc_perf_fd.exp = exp;
+}
+
+void setup_skx_core_ctrs( ctrs_skx_core_exp exp ) {
+  int ret;
+  char fname[1024];
+  int core;
+
+  snprintf(fname, sizeof(fname), "/sys/devices/cpu");
+  for ( core = 0; core < SKX_NCORE; ++core ) {
+    if ( exp == CTRS_EXP_L2_BW ) {
+      evsetup(fname, &gbl_core_perf_fd.fd_l2_lines_in[core], 0xf1, 0x1f, 0x00, 0x00, core);
+      evsetup(fname, &gbl_core_perf_fd.fd_l2_lines_out_ns[core], 0xf2, 0x02, 0x00, 0x00, core);
+      evsetup(fname, &gbl_core_perf_fd.fd_idi_misc_wb_up[core], 0xfe, 0x02, 0x00, 0x00, core);
+      evsetup(fname, &gbl_core_perf_fd.fd_idi_misc_wb_down[core], 0xfe, 0x04, 0x00, 0x00, core);
+    } else {
+      /* nothing */
+    }
+  }
+
+  gbl_uc_perf_fd.exp = exp;
 }
 
 static uint64_t readctr(int fd) {
@@ -187,43 +225,59 @@ static uint64_t readctr(int fd) {
 void read_skx_uc_ctrs( ctrs_skx_uc *c ) {
   int mc, cha;
   for ( mc = 0; mc < SKX_NIMC; ++mc ) {
-    if ( gbl_perf_fd.exp == CTRS_EXP_DRAM_ACT ) {
-      c->act_rd[mc] = readctr(gbl_perf_fd.fd_act_rd[mc]);
-      c->act_wr[mc] = readctr(gbl_perf_fd.fd_act_wr[mc]);
-      c->imc_clockticks[mc] = readctr(gbl_perf_fd.fd_imc_clockticks[mc]);
-    } else if ( gbl_perf_fd.exp == CTRS_EXP_DRAM_CAS ) {
-      c->cas_rd[mc] = readctr(gbl_perf_fd.fd_cas_rd[mc]);
-      c->cas_wr[mc] = readctr(gbl_perf_fd.fd_cas_wr[mc]);
-      c->imc_clockticks[mc] = readctr(gbl_perf_fd.fd_imc_clockticks[mc]);
+    if ( gbl_uc_perf_fd.exp == CTRS_EXP_DRAM_ACT ) {
+      c->act_rd[mc] = readctr(gbl_uc_perf_fd.fd_act_rd[mc]);
+      c->act_wr[mc] = readctr(gbl_uc_perf_fd.fd_act_wr[mc]);
+      c->imc_clockticks[mc] = readctr(gbl_uc_perf_fd.fd_imc_clockticks[mc]);
+    } else if ( gbl_uc_perf_fd.exp == CTRS_EXP_DRAM_CAS ) {
+      c->cas_rd[mc] = readctr(gbl_uc_perf_fd.fd_cas_rd[mc]);
+      c->cas_wr[mc] = readctr(gbl_uc_perf_fd.fd_cas_wr[mc]);
+      c->imc_clockticks[mc] = readctr(gbl_uc_perf_fd.fd_imc_clockticks[mc]);
     } else {
       /* nothing */
     }
   }
 
   for ( cha = 0; cha < SKX_NCHA; ++cha ) {
-    if ( gbl_perf_fd.exp == CTRS_EXP_CHA_ACT ) {
-      c->cha_rd[cha] = readctr(gbl_perf_fd.fd_cha_rd[cha]);
-      c->cha_wr[cha] = readctr(gbl_perf_fd.fd_cha_wr[cha]);
-      c->cha_clockticks[cha] = readctr(gbl_perf_fd.fd_cha_clockticks[cha]);
-    } else if ( gbl_perf_fd.exp == CTRS_EXP_CHA_BL_VERT ) {
-      c->vert_ring_bl_in_use_up[cha] = readctr(gbl_perf_fd.fd_vert_ring_bl_in_use_up[cha]);
-      c->vert_ring_bl_in_use_dn[cha] = readctr(gbl_perf_fd.fd_vert_ring_bl_in_use_dn[cha]);
-      c->cha_clockticks[cha] = readctr(gbl_perf_fd.fd_cha_clockticks[cha]);
-    } else if ( gbl_perf_fd.exp == CTRS_EXP_CHA_BL_HORZ ) {
-      c->horz_ring_bl_in_use_lf[cha] = readctr(gbl_perf_fd.fd_horz_ring_bl_in_use_lf[cha]);
-      c->horz_ring_bl_in_use_rt[cha] = readctr(gbl_perf_fd.fd_horz_ring_bl_in_use_rt[cha]);
-      c->cha_clockticks[cha] = readctr(gbl_perf_fd.fd_cha_clockticks[cha]);
-    } else if ( gbl_perf_fd.exp == CTRS_EXP_CHA_LLC_LOOKUP_VICTIMS ) {
-      c->llc_lookup_rd[cha] = readctr(gbl_perf_fd.fd_llc_lookup_rd[cha]);
-      c->llc_lookup_wr[cha] = readctr(gbl_perf_fd.fd_llc_lookup_wr[cha]);
-      c->llc_victims[cha] = readctr(gbl_perf_fd.fd_llc_victims[cha]);
-      c->cha_clockticks[cha] = readctr(gbl_perf_fd.fd_cha_clockticks[cha]);
+    if ( gbl_uc_perf_fd.exp == CTRS_EXP_CHA_ACT ) {
+      c->cha_rd[cha] = readctr(gbl_uc_perf_fd.fd_cha_rd[cha]);
+      c->cha_wr[cha] = readctr(gbl_uc_perf_fd.fd_cha_wr[cha]);
+      c->cha_clockticks[cha] = readctr(gbl_uc_perf_fd.fd_cha_clockticks[cha]);
+    } else if ( gbl_uc_perf_fd.exp == CTRS_EXP_CHA_BL_VERT ) {
+      c->vert_ring_bl_in_use_up[cha] = readctr(gbl_uc_perf_fd.fd_vert_ring_bl_in_use_up[cha]);
+      c->vert_ring_bl_in_use_dn[cha] = readctr(gbl_uc_perf_fd.fd_vert_ring_bl_in_use_dn[cha]);
+      c->cha_clockticks[cha] = readctr(gbl_uc_perf_fd.fd_cha_clockticks[cha]);
+    } else if ( gbl_uc_perf_fd.exp == CTRS_EXP_CHA_BL_HORZ ) {
+      c->horz_ring_bl_in_use_lf[cha] = readctr(gbl_uc_perf_fd.fd_horz_ring_bl_in_use_lf[cha]);
+      c->horz_ring_bl_in_use_rt[cha] = readctr(gbl_uc_perf_fd.fd_horz_ring_bl_in_use_rt[cha]);
+      c->cha_clockticks[cha] = readctr(gbl_uc_perf_fd.fd_cha_clockticks[cha]);
+    } else if ( gbl_uc_perf_fd.exp == CTRS_EXP_CHA_LLC_LOOKUP_VICTIMS ) {
+      c->llc_lookup_rd[cha] = readctr(gbl_uc_perf_fd.fd_llc_lookup_rd[cha]);
+      c->llc_lookup_wr[cha] = readctr(gbl_uc_perf_fd.fd_llc_lookup_wr[cha]);
+      c->llc_victims[cha] = readctr(gbl_uc_perf_fd.fd_llc_victims[cha]);
+      c->cha_clockticks[cha] = readctr(gbl_uc_perf_fd.fd_cha_clockticks[cha]);
     } else {
       /* nothing */
     }
   }
 
-  c->exp = gbl_perf_fd.exp;
+  c->exp = gbl_uc_perf_fd.exp;
+}
+
+void read_skx_core_ctrs( ctrs_skx_core *c ) {
+  int core;
+  for ( core = 0; core < SKX_NCORE; ++core ) {
+    if ( gbl_core_perf_fd.exp == CTRS_EXP_L2_BW ) {
+      c->l2_lines_in[core] = readctr(gbl_core_perf_fd.fd_l2_lines_in[core]);
+      c->l2_lines_out_ns[core] = readctr(gbl_core_perf_fd.fd_l2_lines_out_ns[core]);
+      c->idi_misc_wb_up[core] = readctr(gbl_core_perf_fd.fd_idi_misc_wb_up[core]);
+      c->idi_misc_wb_down[core] = readctr(gbl_core_perf_fd.fd_idi_misc_wb_down[core]);
+    } else {
+      /* nothing */
+    }
+  }
+
+  c->exp = gbl_core_perf_fd.exp;
 }
 
 void zero_skx_uc_ctrs( ctrs_skx_uc *c ) {
@@ -250,6 +304,16 @@ void zero_skx_uc_ctrs( ctrs_skx_uc *c ) {
   }
 }
 
+void zero_skx_core_ctrs( ctrs_skx_core *c ) {
+  int core;
+  for ( core = 0; core < SKX_NCORE; ++core ) {
+    c->l2_lines_in[core] = 0;
+    c->l2_lines_out_ns[core] = 0;
+    c->idi_misc_wb_up[core] = 0;
+    c->idi_misc_wb_down[core] = 0;
+  }
+}
+
 void divi_skx_uc_ctrs( ctrs_skx_uc *c, uint64_t div ) {
   int mc, cha;
   for ( mc = 0; mc < SKX_NIMC; ++mc ) {
@@ -271,6 +335,16 @@ void divi_skx_uc_ctrs( ctrs_skx_uc *c, uint64_t div ) {
     c->llc_lookup_wr[cha] /= div;
     c->llc_victims[cha] /= div;
     c->cha_clockticks[cha] /= div;
+  }
+}
+
+void divi_skx_core_ctrs( ctrs_skx_core *c, uint64_t div ) {
+  int core;
+  for ( core = 0; core < SKX_NCORE; ++core ) {
+    c->l2_lines_in[core] /= div;
+    c->l2_lines_out_ns[core] /= div;
+    c->idi_misc_wb_up[core] /= div;
+    c->idi_misc_wb_down[core] /= div;
   }
 }
 
@@ -306,6 +380,24 @@ void difa_skx_uc_ctrs( const ctrs_skx_uc *a, const ctrs_skx_uc *b, ctrs_skx_uc* 
   c->exp = a->exp;
 }
 
+void difa_skx_core_ctrs( const ctrs_skx_core *a, const ctrs_skx_core *b, ctrs_skx_core* c ) {
+  int core;
+
+  if ( a->exp != b->exp ) {
+    printf("exp type for a and b need to be identical!\n");
+    return;
+  }
+
+  for ( core = 0; core < SKX_NCORE; ++core ) {
+    c->l2_lines_in[core] += b->l2_lines_in[core] - a->l2_lines_in[core];
+    c->l2_lines_out_ns[core] += b->l2_lines_out_ns[core] - a->l2_lines_out_ns[core];
+    c->idi_misc_wb_up[core] += b->idi_misc_wb_up[core] - a->idi_misc_wb_up[core];
+    c->idi_misc_wb_down[core] += b->idi_misc_wb_down[core] - a->idi_misc_wb_down[core];
+  }
+
+  c->exp = a->exp;
+}
+
 void get_cas_ddr_bw_skx( const ctrs_skx_uc *c, const double t, bw_gibs* bw ) {
   uint64_t read_bytes;
   uint64_t write_bytes;
@@ -317,6 +409,7 @@ void get_cas_ddr_bw_skx( const ctrs_skx_uc *c, const double t, bw_gibs* bw ) {
   if ( c->exp != CTRS_EXP_DRAM_CAS ) { 
     printf("exp type need to be CTRS_EXP_DRAM_CAS!\n");
     bw->rd = 0;
+    bw->rd2 = 0;
     bw->wr = 0;
     bw->wr2 = 0;
     return;
@@ -345,6 +438,7 @@ void get_llc_bw_skx( const ctrs_skx_uc *c, const double t, bw_gibs* bw ) {
   if ( c->exp != CTRS_EXP_CHA_LLC_LOOKUP_VICTIMS ) { 
     printf("exp type need to be CTRS_EXP_CHA_LLC_LOOKUP!\n");
     bw->rd = 0;
+    bw->rd2 = 0;
     bw->wr = 0;
     bw->wr2 = 0;
     return;
@@ -359,6 +453,42 @@ void get_llc_bw_skx( const ctrs_skx_uc *c, const double t, bw_gibs* bw ) {
   bw->rd = (((double)read_bytes )/t)/(1024.0*1024.0*1024.0);
   bw->wr = (((double)write_bytes)/t)/(1024.0*1024.0*1024.0);
   bw->wr2 = (((double)victim_bytes)/t)/(1024.0*1024.0*1024.0);
+}
+
+void get_l2_bw_skx( const ctrs_skx_core *c, const double t, bw_gibs* bw ) {
+  uint64_t read_bytes;
+  uint64_t write_bytes1;
+  uint64_t write_bytes2;
+  uint64_t write_bytes3;
+  int core;
+  
+  read_bytes  = 0;
+  write_bytes1 = 0;
+  write_bytes2 = 0;
+  write_bytes3 = 0;
+
+  if ( c->exp != CTRS_EXP_L2_BW ) { 
+    printf("exp type need to be CTRS_EXP_L2_BW!\n");
+    bw->rd = 0;
+    bw->rd2 = 0;
+    bw->wr = 0;
+    bw->wr2 = 0;
+    bw->wr3 = 0;
+    return;
+  }
+   
+  for ( core = 0; core < SKX_NCORE; ++core ) {
+    read_bytes   += c->l2_lines_in[core]*64;
+    write_bytes1 += c->l2_lines_out_ns[core]*64;
+    write_bytes2 += c->idi_misc_wb_up[core]*64;
+    write_bytes3 += c->idi_misc_wb_down[core]*64;
+  }
+
+  bw->rd = (((double)read_bytes )/t)/(1024.0*1024.0*1024.0);
+  bw->rd2 = 0;
+  bw->wr = (((double)write_bytes1)/t)/(1024.0*1024.0*1024.0);
+  bw->wr2 = (((double)write_bytes2)/t)/(1024.0*1024.0*1024.0);
+  bw->wr3 = (((double)write_bytes3)/t)/(1024.0*1024.0*1024.0);
 }
 
 #ifdef __cplusplus
