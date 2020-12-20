@@ -27,7 +27,7 @@
 ** SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.              **
 ******************************************************************************/
 
-void gflops_float_qfma(double* data) {
+void gflops_float_qfma(float* data) {
   std::cout << "QFMA is not available on this architecture" << std::endl;
 }
 
