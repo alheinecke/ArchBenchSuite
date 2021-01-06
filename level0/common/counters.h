@@ -45,9 +45,12 @@ typedef enum ctrs_skx_uc_exp {
   CTRS_EXP_DRAM_ACT,
   CTRS_EXP_DRAM_CAS,
   CTRS_EXP_CHA_ACT,
-  CTRS_EXP_CHA_BL_VERT,
-  CTRS_EXP_CHA_BL_HORZ,
-  CTRS_EXP_CHA_LLC_LOOKUP_VICTIMS
+  CTRS_EXP_CMS_BL,
+  CTRS_EXP_CHA_LLC_LOOKUP_VICTIMS,
+  CTRS_EXP_CMS_AK,
+  CTRS_EXP_CMS_IV,
+  CTRS_EXP_CMS_AK_IV,
+  CTRS_EXP_CMS_TXR_CYCLES_FULL
 } ctrs_skx_uc_exp;
 
 typedef struct ctrs_skx_uc
@@ -59,14 +62,19 @@ typedef struct ctrs_skx_uc
   uint64_t imc_clockticks[SKX_NIMC];
   uint64_t cha_rd[SKX_NCHA];
   uint64_t cha_wr[SKX_NCHA];
-  uint64_t vert_ring_bl_in_use_up[SKX_NCHA];
-  uint64_t vert_ring_bl_in_use_dn[SKX_NCHA];
-  uint64_t horz_ring_bl_in_use_lf[SKX_NCHA];
-  uint64_t horz_ring_bl_in_use_rt[SKX_NCHA];
+  uint64_t vert_bl_ring_in_use[SKX_NCHA];
+  uint64_t horz_bl_ring_in_use[SKX_NCHA];
+  uint64_t vert_ak_ring_in_use[SKX_NCHA];
+  uint64_t horz_ak_ring_in_use[SKX_NCHA];
+  uint64_t vert_iv_ring_in_use[SKX_NCHA];
+  uint64_t horz_iv_ring_in_use[SKX_NCHA];
+  uint64_t vert_txr_cycle_full[SKX_NCHA];
+  uint64_t horz_txr_cycle_full[SKX_NCHA];
   uint64_t llc_lookup_rd[SKX_NCHA];
   uint64_t llc_lookup_wr[SKX_NCHA];
   uint64_t llc_victims[SKX_NCHA];
   uint64_t cha_clockticks[SKX_NCHA];
+  uint64_t cms_clockticks[SKX_NCHA];
   ctrs_skx_uc_exp exp;
 } ctrs_skx_uc;
 

@@ -52,14 +52,17 @@ typedef struct perf_skx_uc_fd{
   int fd_imc_clockticks[SKX_NIMC];
   int fd_cha_rd[SKX_NCHA];
   int fd_cha_wr[SKX_NCHA];
-  int fd_vert_ring_bl_in_use_up[SKX_NCHA];
-  int fd_vert_ring_bl_in_use_dn[SKX_NCHA];
-  int fd_horz_ring_bl_in_use_lf[SKX_NCHA];
-  int fd_horz_ring_bl_in_use_rt[SKX_NCHA];
+  int fd_vert_bl_ring_in_use[SKX_NCHA];
+  int fd_horz_bl_ring_in_use[SKX_NCHA];
+  int fd_vert_ak_ring_in_use[SKX_NCHA];
+  int fd_horz_ak_ring_in_use[SKX_NCHA];
+  int fd_vert_iv_ring_in_use[SKX_NCHA];
+  int fd_horz_iv_ring_in_use[SKX_NCHA];
   int fd_llc_lookup_rd[SKX_NCHA];
   int fd_llc_lookup_wr[SKX_NCHA];
   int fd_llc_victims[SKX_NCHA];
   int fd_cha_clockticks[SKX_NCHA];
+  int fd_cms_clockticks[SKX_NCHA];
   ctrs_skx_uc_exp exp;
 } perf_skx_uc_fd;
 
@@ -169,14 +172,24 @@ void setup_skx_uc_ctrs( ctrs_skx_uc_exp exp ) {
       evsetup(fname, &gbl_uc_perf_fd.fd_cha_rd[cha], 0x50, 0x03, 0x00, 0x00, -1);
       evsetup(fname, &gbl_uc_perf_fd.fd_cha_wr[cha], 0x50, 0x0C, 0x00, 0x00, -1);
       evsetup(fname, &gbl_uc_perf_fd.fd_cha_clockticks[cha], 0x00, 0x00, 0x00, 0x00, -1);
-    } else if ( exp == CTRS_EXP_CHA_BL_VERT ) {
-      evsetup(fname, &gbl_uc_perf_fd.fd_vert_ring_bl_in_use_up[cha], 0xAA, 0x03, 0x00, 0x00, -1);
-      evsetup(fname, &gbl_uc_perf_fd.fd_vert_ring_bl_in_use_dn[cha], 0xAA, 0x0C, 0x00, 0x00, -1);
-      evsetup(fname, &gbl_uc_perf_fd.fd_cha_clockticks[cha], 0x00, 0x00, 0x00, 0x00, -1);
-    } else if ( exp == CTRS_EXP_CHA_BL_HORZ ) {
-      evsetup(fname, &gbl_uc_perf_fd.fd_horz_ring_bl_in_use_lf[cha], 0xAB, 0x03, 0x00, 0x00, -1);
-      evsetup(fname, &gbl_uc_perf_fd.fd_horz_ring_bl_in_use_rt[cha], 0xAB, 0x0C, 0x00, 0x00, -1);
-      evsetup(fname, &gbl_uc_perf_fd.fd_cha_clockticks[cha], 0x00, 0x00, 0x00, 0x00, -1);
+    } else if ( exp == CTRS_EXP_CMS_BL ) {
+      evsetup(fname, &gbl_uc_perf_fd.fd_vert_bl_ring_in_use[cha], 0xAA, 0x0f, 0x00, 0x00, -1);
+      evsetup(fname, &gbl_uc_perf_fd.fd_horz_bl_ring_in_use[cha], 0xAB, 0x0f, 0x00, 0x00, -1);
+      evsetup(fname, &gbl_uc_perf_fd.fd_cms_clockticks[cha], 0xc0, 0x00, 0x00, 0x00, -1);
+    } else if ( exp == CTRS_EXP_CMS_AK ) {
+      evsetup(fname, &gbl_uc_perf_fd.fd_vert_ak_ring_in_use[cha], 0xA8, 0x0f, 0x00, 0x00, -1);
+      evsetup(fname, &gbl_uc_perf_fd.fd_horz_ak_ring_in_use[cha], 0xA9, 0x0f, 0x00, 0x00, -1);
+      evsetup(fname, &gbl_uc_perf_fd.fd_cms_clockticks[cha], 0xc0, 0x00, 0x00, 0x00, -1);
+    } else if ( exp == CTRS_EXP_CMS_IV ) {
+      evsetup(fname, &gbl_uc_perf_fd.fd_vert_iv_ring_in_use[cha], 0xAC, 0x0f, 0x00, 0x00, -1);
+      evsetup(fname, &gbl_uc_perf_fd.fd_horz_iv_ring_in_use[cha], 0xAD, 0x0f, 0x00, 0x00, -1);
+      evsetup(fname, &gbl_uc_perf_fd.fd_cms_clockticks[cha], 0xc0, 0x00, 0x00, 0x00, -1);
+    } else if ( exp == CTRS_EXP_CMS_AK_IV ) {
+      evsetup(fname, &gbl_uc_perf_fd.fd_vert_ak_ring_in_use[cha], 0xA8, 0x0f, 0x00, 0x00, -1);
+      evsetup(fname, &gbl_uc_perf_fd.fd_horz_ak_ring_in_use[cha], 0xA9, 0x0f, 0x00, 0x00, -1);
+      evsetup(fname, &gbl_uc_perf_fd.fd_vert_iv_ring_in_use[cha], 0xAC, 0x0f, 0x00, 0x00, -1);
+      evsetup(fname, &gbl_uc_perf_fd.fd_horz_iv_ring_in_use[cha], 0xAD, 0x0f, 0x00, 0x00, -1);
+      evsetup(fname, &gbl_uc_perf_fd.fd_cms_clockticks[cha], 0xc0, 0x00, 0x00, 0x00, -1);
     } else if ( exp == CTRS_EXP_CHA_LLC_LOOKUP_VICTIMS ) {
       evsetup(fname, &gbl_uc_perf_fd.fd_llc_lookup_rd[cha], 0x34, 0x03, 0x01e20000, 0x10, -1); /* F,M,E,S,I LLC and NM */
       evsetup(fname, &gbl_uc_perf_fd.fd_llc_lookup_wr[cha], 0x34, 0x05, 0x01e20000, 0x3b, -1); /* F,M,E,S,I LLC and NM */
@@ -243,14 +256,24 @@ void read_skx_uc_ctrs( ctrs_skx_uc *c ) {
       c->cha_rd[cha] = readctr(gbl_uc_perf_fd.fd_cha_rd[cha]);
       c->cha_wr[cha] = readctr(gbl_uc_perf_fd.fd_cha_wr[cha]);
       c->cha_clockticks[cha] = readctr(gbl_uc_perf_fd.fd_cha_clockticks[cha]);
-    } else if ( gbl_uc_perf_fd.exp == CTRS_EXP_CHA_BL_VERT ) {
-      c->vert_ring_bl_in_use_up[cha] = readctr(gbl_uc_perf_fd.fd_vert_ring_bl_in_use_up[cha]);
-      c->vert_ring_bl_in_use_dn[cha] = readctr(gbl_uc_perf_fd.fd_vert_ring_bl_in_use_dn[cha]);
-      c->cha_clockticks[cha] = readctr(gbl_uc_perf_fd.fd_cha_clockticks[cha]);
-    } else if ( gbl_uc_perf_fd.exp == CTRS_EXP_CHA_BL_HORZ ) {
-      c->horz_ring_bl_in_use_lf[cha] = readctr(gbl_uc_perf_fd.fd_horz_ring_bl_in_use_lf[cha]);
-      c->horz_ring_bl_in_use_rt[cha] = readctr(gbl_uc_perf_fd.fd_horz_ring_bl_in_use_rt[cha]);
-      c->cha_clockticks[cha] = readctr(gbl_uc_perf_fd.fd_cha_clockticks[cha]);
+    } else if ( gbl_uc_perf_fd.exp == CTRS_EXP_CMS_BL ) {
+      c->vert_bl_ring_in_use[cha] = readctr(gbl_uc_perf_fd.fd_vert_bl_ring_in_use[cha]);
+      c->horz_bl_ring_in_use[cha] = readctr(gbl_uc_perf_fd.fd_horz_bl_ring_in_use[cha]);
+      c->cms_clockticks[cha] = readctr(gbl_uc_perf_fd.fd_cms_clockticks[cha]);
+    } else if ( gbl_uc_perf_fd.exp == CTRS_EXP_CMS_AK ) {
+      c->vert_ak_ring_in_use[cha] = readctr(gbl_uc_perf_fd.fd_vert_ak_ring_in_use[cha]);
+      c->horz_ak_ring_in_use[cha] = readctr(gbl_uc_perf_fd.fd_horz_ak_ring_in_use[cha]);
+      c->cms_clockticks[cha] = readctr(gbl_uc_perf_fd.fd_cms_clockticks[cha]);
+    } else if ( gbl_uc_perf_fd.exp == CTRS_EXP_CMS_IV ) {
+      c->vert_iv_ring_in_use[cha] = readctr(gbl_uc_perf_fd.fd_vert_iv_ring_in_use[cha]);
+      c->horz_iv_ring_in_use[cha] = readctr(gbl_uc_perf_fd.fd_horz_iv_ring_in_use[cha]);
+      c->cms_clockticks[cha] = readctr(gbl_uc_perf_fd.fd_cms_clockticks[cha]);
+    } else if ( gbl_uc_perf_fd.exp == CTRS_EXP_CMS_AK_IV ) {
+      c->vert_ak_ring_in_use[cha] = readctr(gbl_uc_perf_fd.fd_vert_ak_ring_in_use[cha]);
+      c->horz_ak_ring_in_use[cha] = readctr(gbl_uc_perf_fd.fd_horz_ak_ring_in_use[cha]);
+      c->vert_iv_ring_in_use[cha] = readctr(gbl_uc_perf_fd.fd_vert_iv_ring_in_use[cha]);
+      c->horz_iv_ring_in_use[cha] = readctr(gbl_uc_perf_fd.fd_horz_iv_ring_in_use[cha]);
+      c->cms_clockticks[cha] = readctr(gbl_uc_perf_fd.fd_cms_clockticks[cha]);
     } else if ( gbl_uc_perf_fd.exp == CTRS_EXP_CHA_LLC_LOOKUP_VICTIMS ) {
       c->llc_lookup_rd[cha] = readctr(gbl_uc_perf_fd.fd_llc_lookup_rd[cha]);
       c->llc_lookup_wr[cha] = readctr(gbl_uc_perf_fd.fd_llc_lookup_wr[cha]);
@@ -293,14 +316,17 @@ void zero_skx_uc_ctrs( ctrs_skx_uc *c ) {
   for ( cha = 0; cha < SKX_NCHA; ++cha ) {
     c->cha_rd[cha] = 0;
     c->cha_wr[cha] = 0;
-    c->vert_ring_bl_in_use_up[cha] = 0;
-    c->vert_ring_bl_in_use_dn[cha] = 0;
-    c->horz_ring_bl_in_use_lf[cha] = 0;
-    c->horz_ring_bl_in_use_rt[cha] = 0;
+    c->vert_bl_ring_in_use[cha] = 0;
+    c->horz_bl_ring_in_use[cha] = 0;
+    c->vert_ak_ring_in_use[cha] = 0;
+    c->horz_ak_ring_in_use[cha] = 0;
+    c->vert_iv_ring_in_use[cha] = 0;
+    c->horz_iv_ring_in_use[cha] = 0;
     c->llc_lookup_rd[cha] = 0;
     c->llc_lookup_wr[cha] = 0;
     c->llc_victims[cha] = 0;
     c->cha_clockticks[cha] = 0;
+    c->cms_clockticks[cha] = 0;
   }
 }
 
@@ -327,14 +353,17 @@ void divi_skx_uc_ctrs( ctrs_skx_uc *c, uint64_t div ) {
   for ( cha = 0; cha < SKX_NCHA; ++cha ) {
     c->cha_rd[cha] /= div;
     c->cha_wr[cha] /= div;
-    c->vert_ring_bl_in_use_up[cha] /= div;
-    c->vert_ring_bl_in_use_dn[cha] /= div;
-    c->horz_ring_bl_in_use_lf[cha] /= div;
-    c->horz_ring_bl_in_use_rt[cha] /= div;
+    c->vert_bl_ring_in_use[cha] /= div;
+    c->horz_bl_ring_in_use[cha] /= div;
+    c->vert_ak_ring_in_use[cha] /= div;
+    c->horz_ak_ring_in_use[cha] /= div;
+    c->vert_iv_ring_in_use[cha] /= div;
+    c->horz_iv_ring_in_use[cha] /= div;
     c->llc_lookup_rd[cha] /= div;
     c->llc_lookup_wr[cha] /= div;
     c->llc_victims[cha] /= div;
     c->cha_clockticks[cha] /= div;
+    c->cms_clockticks[cha] /= div;
   }
 }
 
@@ -367,14 +396,17 @@ void difa_skx_uc_ctrs( const ctrs_skx_uc *a, const ctrs_skx_uc *b, ctrs_skx_uc* 
   for ( cha = 0; cha < SKX_NCHA; ++cha ) {
     c->cha_rd[cha] += b->cha_rd[cha] - a->cha_rd[cha];
     c->cha_wr[cha] += b->cha_wr[cha] - a->cha_wr[cha];
-    c->vert_ring_bl_in_use_up[cha] += b->vert_ring_bl_in_use_up[cha] - a->vert_ring_bl_in_use_up[cha];
-    c->vert_ring_bl_in_use_dn[cha] += b->vert_ring_bl_in_use_dn[cha] - a->vert_ring_bl_in_use_dn[cha];
-    c->horz_ring_bl_in_use_lf[cha] += b->horz_ring_bl_in_use_lf[cha] - a->horz_ring_bl_in_use_lf[cha];
-    c->horz_ring_bl_in_use_rt[cha] += b->horz_ring_bl_in_use_rt[cha] - a->horz_ring_bl_in_use_rt[cha];
+    c->vert_bl_ring_in_use[cha] += b->vert_bl_ring_in_use[cha] - a->vert_bl_ring_in_use[cha];
+    c->horz_bl_ring_in_use[cha] += b->horz_bl_ring_in_use[cha] - a->horz_bl_ring_in_use[cha];
+    c->vert_ak_ring_in_use[cha] += b->vert_ak_ring_in_use[cha] - a->vert_ak_ring_in_use[cha];
+    c->horz_ak_ring_in_use[cha] += b->horz_ak_ring_in_use[cha] - a->horz_ak_ring_in_use[cha];
+    c->vert_iv_ring_in_use[cha] += b->vert_iv_ring_in_use[cha] - a->vert_iv_ring_in_use[cha];
+    c->horz_iv_ring_in_use[cha] += b->horz_iv_ring_in_use[cha] - a->horz_iv_ring_in_use[cha];
     c->llc_lookup_rd[cha] += b->llc_lookup_rd[cha] - a->llc_lookup_rd[cha];
     c->llc_lookup_wr[cha] += b->llc_lookup_wr[cha] - a->llc_lookup_wr[cha];
     c->llc_victims[cha] += b->llc_victims[cha] - a->llc_victims[cha];
     c->cha_clockticks[cha] += b->cha_clockticks[cha] - a->cha_clockticks[cha];
+    c->cms_clockticks[cha] += b->cms_clockticks[cha] - a->cms_clockticks[cha];
   }
 
   c->exp = a->exp;
