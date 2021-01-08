@@ -44,7 +44,7 @@
 extern "C" {
 #endif
 
-typedef struct perf_skx_uc_fd{
+typedef struct perf_skx_uc_fd {
   int fd_act_rd[SKX_NIMC];
   int fd_act_wr[SKX_NIMC];
   int fd_cas_rd[SKX_NIMC];
@@ -61,6 +61,14 @@ typedef struct perf_skx_uc_fd{
   int fd_llc_lookup_rd[SKX_NCHA];
   int fd_llc_lookup_wr[SKX_NCHA];
   int fd_llc_victims[SKX_NCHA];
+  int fd_xsnp_resp[SKX_NCHA];
+  int fd_core_snp[SKX_NCHA];
+  int fd_snoops_sent[SKX_NCHA];
+  int fd_snoop_resp[SKX_NCHA];
+  int fd_snoop_resp_local[SKX_NCHA];
+  int fd_osb[SKX_NCHA];
+  int fd_tor_inserts[SKX_NCHA];
+  int fd_tor_occupancy[SKX_NCHA];
   int fd_cha_clockticks[SKX_NCHA];
   int fd_cms_clockticks[SKX_NCHA];
   ctrs_skx_uc_exp exp;
@@ -196,6 +204,26 @@ void setup_skx_uc_ctrs( ctrs_skx_uc_exp exp ) {
       evsetup(fname, &gbl_uc_perf_fd.fd_llc_victims[cha],   0x37, 0x2f, 0x00000000, 0x00, -1); /* F,M,E,S,I LLC and NM */
       /*evsetup(fname, &gbl_uc_perf_fd.fd_llc_victims[cha],   0x34, 0x11, 0x01e20000, 0x10, -1);*/ /* F,M,E,S,I LLC and NM */
       evsetup(fname, &gbl_uc_perf_fd.fd_cha_clockticks[cha], 0x00, 0x00, 0x00, 0x00, -1);
+    } else if ( exp == CTRS_EXP_CHA_XSNP_RESP ) {
+      evsetup(fname, &gbl_uc_perf_fd.fd_xsnp_resp[cha], 0x32, 0xff, 0x00, 0x00, -1);
+      evsetup(fname, &gbl_uc_perf_fd.fd_cha_clockticks[cha], 0x00, 0x00, 0x00, 0x00, -1);
+    } else if ( exp == CTRS_EXP_CHA_CORE_SNP ) {
+      evsetup(fname, &gbl_uc_perf_fd.fd_core_snp[cha], 0x33, 0xe7, 0x00, 0x00, -1);
+      evsetup(fname, &gbl_uc_perf_fd.fd_cha_clockticks[cha], 0x00, 0x00, 0x00, 0x00, -1);
+    } else if ( exp == CTRS_EXP_CHA_SNOOPS_SENT ) {
+      evsetup(fname, &gbl_uc_perf_fd.fd_snoops_sent[cha], 0x51, 0x01, 0x00, 0x00, -1);
+      evsetup(fname, &gbl_uc_perf_fd.fd_cha_clockticks[cha], 0x00, 0x00, 0x00, 0x00, -1);
+    } else if ( exp == CTRS_EXP_CHA_SNOOP_RESP_ALL ) {
+      evsetup(fname, &gbl_uc_perf_fd.fd_snoop_resp[cha], 0x5c, 0xff, 0x00, 0x00, -1);
+      evsetup(fname, &gbl_uc_perf_fd.fd_snoop_resp_local[cha], 0x5d, 0xff, 0x00, 0x00, -1);
+      evsetup(fname, &gbl_uc_perf_fd.fd_cha_clockticks[cha], 0x00, 0x00, 0x00, 0x00, -1);
+    } else if ( exp == CTRS_EXP_CHA_OSB ) {
+      evsetup(fname, &gbl_uc_perf_fd.fd_osb[cha], 0x55, 0x00, 0x00, 0x00, -1);
+      evsetup(fname, &gbl_uc_perf_fd.fd_cha_clockticks[cha], 0x00, 0x00, 0x00, 0x00, -1);
+    } else if ( exp == CTRS_EXP_CHA_TOR ) {
+      evsetup(fname, &gbl_uc_perf_fd.fd_tor_inserts[cha], 0x35, 0x25, 0x00, 0x00, -1);
+      evsetup(fname, &gbl_uc_perf_fd.fd_tor_occupancy[cha], 0x36, 0x24, 0x00, 0x00, -1);
+      evsetup(fname, &gbl_uc_perf_fd.fd_cha_clockticks[cha], 0x00, 0x00, 0x00, 0x00, -1);
     } else {
       /* nothing */
     }
@@ -279,6 +307,26 @@ void read_skx_uc_ctrs( ctrs_skx_uc *c ) {
       c->llc_lookup_wr[cha] = readctr(gbl_uc_perf_fd.fd_llc_lookup_wr[cha]);
       c->llc_victims[cha] = readctr(gbl_uc_perf_fd.fd_llc_victims[cha]);
       c->cha_clockticks[cha] = readctr(gbl_uc_perf_fd.fd_cha_clockticks[cha]);
+    } else if ( gbl_uc_perf_fd.exp == CTRS_EXP_CHA_XSNP_RESP ) {
+      c->xsnp_resp[cha] = readctr(gbl_uc_perf_fd.fd_xsnp_resp[cha]);
+      c->cha_clockticks[cha] = readctr(gbl_uc_perf_fd.fd_cha_clockticks[cha]);
+    } else if ( gbl_uc_perf_fd.exp == CTRS_EXP_CHA_CORE_SNP ) {
+      c->core_snp[cha] = readctr(gbl_uc_perf_fd.fd_core_snp[cha]);
+      c->cha_clockticks[cha] = readctr(gbl_uc_perf_fd.fd_cha_clockticks[cha]);
+    } else if ( gbl_uc_perf_fd.exp == CTRS_EXP_CHA_SNOOPS_SENT ) {
+      c->snoops_sent[cha] = readctr(gbl_uc_perf_fd.fd_snoops_sent[cha]);
+      c->cha_clockticks[cha] = readctr(gbl_uc_perf_fd.fd_cha_clockticks[cha]);
+    } else if ( gbl_uc_perf_fd.exp == CTRS_EXP_CHA_SNOOP_RESP_ALL ) {
+      c->snoop_resp[cha] = readctr(gbl_uc_perf_fd.fd_snoop_resp[cha]);
+      c->snoop_resp_local[cha] = readctr(gbl_uc_perf_fd.fd_snoop_resp_local[cha]);
+      c->cha_clockticks[cha] = readctr(gbl_uc_perf_fd.fd_cha_clockticks[cha]);
+    } else if ( gbl_uc_perf_fd.exp == CTRS_EXP_CHA_OSB ) {
+      c->osb[cha] = readctr(gbl_uc_perf_fd.fd_osb[cha]);
+      c->cha_clockticks[cha] = readctr(gbl_uc_perf_fd.fd_cha_clockticks[cha]);
+    } else if ( gbl_uc_perf_fd.exp == CTRS_EXP_CHA_TOR ) {
+      c->tor_inserts[cha] = readctr(gbl_uc_perf_fd.fd_tor_inserts[cha]);
+      c->tor_occupancy[cha] = readctr(gbl_uc_perf_fd.fd_tor_occupancy[cha]);
+      c->cha_clockticks[cha] = readctr(gbl_uc_perf_fd.fd_cha_clockticks[cha]);
     } else {
       /* nothing */
     }
@@ -325,6 +373,14 @@ void zero_skx_uc_ctrs( ctrs_skx_uc *c ) {
     c->llc_lookup_rd[cha] = 0;
     c->llc_lookup_wr[cha] = 0;
     c->llc_victims[cha] = 0;
+    c->xsnp_resp[cha] = 0;
+    c->core_snp[cha] = 0;
+    c->snoops_sent[cha] = 0;
+    c->snoop_resp[cha] = 0;
+    c->snoop_resp_local[cha] = 0;
+    c->osb[cha] = 0;
+    c->tor_inserts[cha] = 0;
+    c->tor_occupancy[cha] = 0;
     c->cha_clockticks[cha] = 0;
     c->cms_clockticks[cha] = 0;
   }
@@ -362,6 +418,14 @@ void divi_skx_uc_ctrs( ctrs_skx_uc *c, uint64_t div ) {
     c->llc_lookup_rd[cha] /= div;
     c->llc_lookup_wr[cha] /= div;
     c->llc_victims[cha] /= div;
+    c->xsnp_resp[cha] /= div;
+    c->core_snp[cha] /= div;
+    c->snoops_sent[cha] /= div;
+    c->snoop_resp[cha] /= div;
+    c->snoop_resp_local[cha] /= div;
+    c->osb[cha] /= div;
+    c->tor_inserts[cha] /= div;
+    c->tor_occupancy[cha] /= div;
     c->cha_clockticks[cha] /= div;
     c->cms_clockticks[cha] /= div;
   }
@@ -405,6 +469,14 @@ void difa_skx_uc_ctrs( const ctrs_skx_uc *a, const ctrs_skx_uc *b, ctrs_skx_uc* 
     c->llc_lookup_rd[cha] += b->llc_lookup_rd[cha] - a->llc_lookup_rd[cha];
     c->llc_lookup_wr[cha] += b->llc_lookup_wr[cha] - a->llc_lookup_wr[cha];
     c->llc_victims[cha] += b->llc_victims[cha] - a->llc_victims[cha];
+    c->xsnp_resp[cha] += b->xsnp_resp[cha] - a->xsnp_resp[cha];
+    c->core_snp[cha] += b->core_snp[cha] - a->core_snp[cha];
+    c->snoops_sent[cha] += b->snoops_sent[cha] - a->snoops_sent[cha];
+    c->snoop_resp[cha] += b->snoop_resp[cha] - a->snoop_resp[cha];
+    c->snoop_resp_local[cha] += b->snoop_resp_local[cha] - a->snoop_resp_local[cha];
+    c->osb[cha] += b->osb[cha] - a->osb[cha];
+    c->tor_inserts[cha] += b->tor_inserts[cha] - a->tor_inserts[cha];
+    c->tor_occupancy[cha] += b->tor_occupancy[cha] - a->tor_occupancy[cha];
     c->cha_clockticks[cha] += b->cha_clockticks[cha] - a->cha_clockticks[cha];
     c->cms_clockticks[cha] += b->cms_clockticks[cha] - a->cms_clockticks[cha];
   }

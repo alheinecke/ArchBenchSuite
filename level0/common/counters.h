@@ -45,16 +45,21 @@ typedef enum ctrs_skx_uc_exp {
   CTRS_EXP_DRAM_ACT,
   CTRS_EXP_DRAM_CAS,
   CTRS_EXP_CHA_ACT,
-  CTRS_EXP_CMS_BL,
   CTRS_EXP_CHA_LLC_LOOKUP_VICTIMS,
+  CTRS_EXP_CHA_XSNP_RESP,
+  CTRS_EXP_CHA_CORE_SNP,
+  CTRS_EXP_CHA_SNOOPS_SENT,
+  CTRS_EXP_CHA_SNOOP_RESP_ALL,
+  CTRS_EXP_CHA_OSB,
+  CTRS_EXP_CHA_TOR,
+  CTRS_EXP_CMS_BL,
   CTRS_EXP_CMS_AK,
   CTRS_EXP_CMS_IV,
   CTRS_EXP_CMS_AK_IV,
   CTRS_EXP_CMS_TXR_CYCLES_FULL
 } ctrs_skx_uc_exp;
 
-typedef struct ctrs_skx_uc
-{
+typedef struct ctrs_skx_uc {
   uint64_t act_rd[SKX_NIMC];
   uint64_t act_wr[SKX_NIMC];
   uint64_t cas_rd[SKX_NIMC];
@@ -73,6 +78,14 @@ typedef struct ctrs_skx_uc
   uint64_t llc_lookup_rd[SKX_NCHA];
   uint64_t llc_lookup_wr[SKX_NCHA];
   uint64_t llc_victims[SKX_NCHA];
+  uint64_t xsnp_resp[SKX_NCHA];
+  uint64_t core_snp[SKX_NCHA];
+  uint64_t snoops_sent[SKX_NCHA];
+  uint64_t snoop_resp[SKX_NCHA];
+  uint64_t snoop_resp_local[SKX_NCHA];
+  uint64_t osb[SKX_NCHA];
+  uint64_t tor_inserts[SKX_NCHA];
+  uint64_t tor_occupancy[SKX_NCHA];
   uint64_t cha_clockticks[SKX_NCHA];
   uint64_t cms_clockticks[SKX_NCHA];
   ctrs_skx_uc_exp exp;
@@ -82,8 +95,7 @@ typedef enum ctrs_skx_core_exp {
   CTRS_EXP_L2_BW
 } ctrs_skx_core_exp;
 
-typedef struct ctrs_skx_core
-{
+typedef struct ctrs_skx_core {
   uint64_t l2_lines_in[SKX_NCORE];
   uint64_t l2_lines_out_ns[SKX_NCORE];
   uint64_t idi_misc_wb_up[SKX_NCORE];
