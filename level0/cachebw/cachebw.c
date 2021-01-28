@@ -122,7 +122,7 @@ inline double sec(struct timeval start, struct timeval end) {
 }
 
 
-inline void run_benchmark( double* i_data, size_t i_arraySize, size_t i_private, size_t i_iters ) {
+inline void run_benchmark( double* i_data, size_t i_arraySize, size_t i_copies, size_t i_iters ) {
   // we do manual reduction here as we don't rely on a smart OpenMP implementation
   #pragma omp parallel 
   {
@@ -133,25 +133,16 @@ inline void run_benchmark( double* i_data, size_t i_arraySize, size_t i_private,
     size_t l_tid = 0;
     size_t l_numThreads = 1;
 #endif
-    size_t l_chunkSize;
-    double* l_locAddr;
-    size_t* l_pChunkSize;
-    
-    if (i_private == 0) {
-      l_chunkSize = i_arraySize;
-      l_locAddr = i_data;
-    } else {
-      l_chunkSize = i_arraySize/l_numThreads;
-      l_locAddr = i_data + (l_chunkSize*l_tid);
-    }
-    l_pChunkSize = &l_chunkSize;
-
-    size_t l_i = 0;
+    size_t  l_arraySize = i_arraySize/i_copies;
+    size_t  threads_per_copy = l_numThreads / i_copies;
+    double* l_locAddr = i_data + (l_arraySize*(l_tid/threads_per_copy));
+    size_t* l_parraySize = &(l_arraySize);
+    size_t  l_i = 0;
 
     for( l_i = 0; l_i < i_iters; l_i++ ) {
 #ifdef __VSX__
       //if (l_tid % 2 == 0) {
-      run_vsx_kernel(l_locAddr, l_chunkSize);
+      run_vsx_kernel(l_locAddr, l_arraySize);
       //} else {
       //  run_gpr_kernel((size_t*)l_locAddr, l_chunkSize);
       //}
@@ -194,7 +185,7 @@ inline void run_benchmark( double* i_data, size_t i_arraySize, size_t i_private,
                              "ld1 {v31.2d}, [x0],16\n\t"
                              "sub x1, x1, #64\n\t"
                              "cbnz x1, 1b\n\t"
-                        : : "r" (l_locAddr), "r" (l_chunkSize) : "x0","x1","v0","v1","v2","v4","v5","v6","v7","v8","v9","v10","v11","v12","v13","v14","v15","v16","v17","v18","v19","v20","v21","v22","v23","v24","v25","v26","v27","v28","v29","v30","v31"); 
+                        : : "r" (l_locAddr), "r" (l_parraySize) : "x0","x1","v0","v1","v2","v4","v5","v6","v7","v8","v9","v10","v11","v12","v13","v14","v15","v16","v17","v18","v19","v20","v21","v22","v23","v24","v25","v26","v27","v28","v29","v30","v31"); 
 #endif
 #ifdef __AVX512F__
       __asm__ __volatile__("movq %0, %%r8\n\t"
@@ -237,7 +228,7 @@ inline void run_benchmark( double* i_data, size_t i_arraySize, size_t i_private,
                            "addq $2048, %%r8\n\t"
                            "cmpq $0, %%r9\n\t"
                            "jg 1b\n\t"
-                      : : "m"(l_locAddr), "m"(l_pChunkSize)  : "r8","r9","r10","xmm0","xmm1","xmm2","xmm3","xmm4","xmm5","xmm6","xmm7","xmm8","xmm9","xmm10","xmm11","xmm12","xmm13","xmm14","xmm15","xmm16","xmm17","xmm18","xmm19","xmm20","xmm21","xmm22","xmm23","xmm24","xmm25","xmm26","xmm27","xmm28","xmm29","xmm30","xmm31");
+                      : : "m"(l_locAddr), "m"(l_parraySize)  : "r8","r9","r10","xmm0","xmm1","xmm2","xmm3","xmm4","xmm5","xmm6","xmm7","xmm8","xmm9","xmm10","xmm11","xmm12","xmm13","xmm14","xmm15","xmm16","xmm17","xmm18","xmm19","xmm20","xmm21","xmm22","xmm23","xmm24","xmm25","xmm26","xmm27","xmm28","xmm29","xmm30","xmm31");
 #elif __AVX__
       __asm__ __volatile__("movq %0, %%r8\n\t"
                            "movq %1, %%r10\n\t"
@@ -263,7 +254,7 @@ inline void run_benchmark( double* i_data, size_t i_arraySize, size_t i_private,
                            "addq $512, %%r8\n\t"
                            "cmpq $0, %%r9\n\t"
                            "jg 1b\n\t"
-                      : : "m"(l_locAddr), "m"(l_pChunkSize)  : "r8","r9","r10","xmm0","xmm1","xmm2","xmm3","xmm4","xmm5","xmm6","xmm7","xmm8","xmm9","xmm10","xmm11","xmm12","xmm13","xmm14","xmm15");
+                      : : "m"(l_locAddr), "m"(l_parraySize)  : "r8","r9","r10","xmm0","xmm1","xmm2","xmm3","xmm4","xmm5","xmm6","xmm7","xmm8","xmm9","xmm10","xmm11","xmm12","xmm13","xmm14","xmm15");
 #elif __SSE3__
       __asm__ __volatile__("movq %0, %%r8\n\t"
                            "movq %1, %%r10\n\t"
@@ -289,7 +280,7 @@ inline void run_benchmark( double* i_data, size_t i_arraySize, size_t i_private,
                            "addq $256, %%r8\n\t"
                            "cmpq $0, %%r9\n\t"
                            "jg 1b\n\t"
-                      : : "m"(l_locAddr), "m"(l_pChunkSize)  : "r8","r9","r10","xmm0","xmm1","xmm2","xmm3","xmm4","xmm5","xmm6","xmm7","xmm8","xmm9","xmm10","xmm11","xmm12","xmm13","xmm14","xmm15");
+                      : : "m"(l_locAddr), "m"(l_parraySize)  : "r8","r9","r10","xmm0","xmm1","xmm2","xmm3","xmm4","xmm5","xmm6","xmm7","xmm8","xmm9","xmm10","xmm11","xmm12","xmm13","xmm14","xmm15");
 #endif
       }
     } 
@@ -302,7 +293,7 @@ int main(int argc, char* argv[]) {
   size_t l_arrayFactor = 2;
   size_t l_arraySteps = 1;
   size_t l_iters_0 = 1;
-  size_t l_private = 0;
+  size_t l_copies = 1;
   size_t i = 0;
 #ifdef USE_PERF_COUNTERS
   ctrs_skx_uc a, b, s;
@@ -316,14 +307,14 @@ int main(int argc, char* argv[]) {
 
 
   if (argc != 6) {
-    printf("#doubles increase-factor increase-steps private={0/NNZ} #reps\n");
+    printf("#doubles increase-factor increase-steps copies #reps\n");
     return -1;
   }
 
   l_arraySize_0 = atoi(argv[1]);
   l_arrayFactor = atoi(argv[2]);
   l_arraySteps = atoi(argv[3]); 
-  l_private = atoi(argv[4]);
+  l_copies = atoi(argv[4]);
   l_iters_0 = atoi(argv[5]);
 
 
@@ -343,12 +334,8 @@ int main(int argc, char* argv[]) {
   }
   
   printf("Number of threads: %lld\n", l_numThreads);
-  if ( l_private == 0 ) {
-    printf("Using shared Read Buffer\n");
-  } else {
-    printf("Using private Read Buffer\n");
-    l_arraySize_0 *= l_numThreads;
-  }
+  printf("Using %i private Read Buffers\n", l_copies);
+  l_arraySize_0 *= l_copies;
   printf("KiB-per-core-read,GiB/s,Time\n");
  
   for ( i = 0 ; i < l_arraySteps; ++i ) {
@@ -358,7 +345,7 @@ int main(int argc, char* argv[]) {
     struct timeval l_startTime, l_endTime;
     size_t l_arraySize = (i == 0) ? l_arraySize_0 : l_arraySize_0 * i * l_arrayFactor;
     size_t l_iters = (i == 0) ? l_iters_0 : l_iters_0 / (i * l_arrayFactor);
-    double l_size = (l_private == 0) ? (double)((size_t)l_arraySize)*sizeof(double) : (double)((size_t)l_arraySize/l_numThreads)*sizeof(double);
+    double l_size = (double)((size_t)l_arraySize*sizeof(double));
     // init data
     posix_memalign((void**)&l_data, 2097152, ((size_t)l_arraySize)*sizeof(double));;
 
@@ -368,14 +355,14 @@ int main(int argc, char* argv[]) {
     }
 
     // pre-heat caches
-    run_benchmark( l_data, l_arraySize, l_private, 5 );
+    run_benchmark( l_data, l_arraySize, l_copies, 5 );
     
     // run benchmark
 #ifdef USE_PERF_COUNTERS
     read_skx_uc_ctrs( &a );
 #endif
     gettimeofday(&l_startTime, NULL);
-    run_benchmark( l_data, l_arraySize, l_private, l_iters );
+    run_benchmark( l_data, l_arraySize, l_copies, l_iters );
     gettimeofday(&l_endTime, NULL);
     l_avgTime = sec(l_startTime, l_endTime);
 #ifdef USE_PERF_COUNTERS
@@ -387,10 +374,10 @@ int main(int argc, char* argv[]) {
     l_avgTime /= (double)l_iters;
     
     // output
-    printf("%f,%f,%f\n", l_size/1024.0, ((l_size*l_numThreads)/(1024.0*1024.0*1024.0))/l_avgTime, l_avgTime);
+    printf("%f,%f,%f\n", (l_size/l_copies)/1024.0, (((l_size/l_copies)*l_numThreads)/(1024.0*1024.0*1024.0))/l_avgTime, l_avgTime);
 #ifdef USE_PERF_COUNTERS
     get_llc_bw_skx( &s, l_avgTime, &bw_cnt );
-    printf("%f,%f,%f,%f,%f (counters)\n", l_size/1024.0, bw_cnt.rd, bw_cnt.wr, bw_cnt.wr2, l_avgTime);
+    printf("%f,%f,%f,%f,%f (counters)\n", (l_size/l_copies)/1024.0, bw_cnt.rd, bw_cnt.wr, bw_cnt.wr2, l_avgTime);
 #endif
     free(l_data);
   }
