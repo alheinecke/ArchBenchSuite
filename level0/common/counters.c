@@ -249,7 +249,7 @@ void setup_skx_core_ctrs( ctrs_skx_core_exp exp ) {
     }
   }
 
-  gbl_uc_perf_fd.exp = exp;
+  gbl_core_perf_fd.exp = exp;
 }
 
 static uint64_t readctr(int fd) {
