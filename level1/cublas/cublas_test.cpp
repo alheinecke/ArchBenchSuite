@@ -1,5 +1,5 @@
 /******************************************************************************
-** Copyright (c) 2013-2018, Alexander Heinecke                               **
+** Copyright (c) 2013-2021, Alexander Heinecke                               **
 ** All rights reserved.                                                      **
 **                                                                           **
 ** Redistribution and use in source and binary forms, with or without        **
@@ -74,35 +74,26 @@ double timer_stop()
 	return ret;
 }
 
-
-void test_half_general(size_t m, size_t n, size_t k, size_t s, size_t r)
+void test_half_half_general(size_t m, size_t n, size_t k, size_t s, size_t r)
 {
 	// host-side allocation
 	__half* h_A = NULL;
 	__half* h_B = NULL;
-#if 0
 	__half* h_C = NULL;
-#else
-        float* h_C = NULL;
-#endif
 
 	// Allocate memory on GFX
 	__half* d_A = NULL;
 	__half* d_B = NULL;
-#if 0
 	__half* d_C = NULL;
-#else
-	float* d_C = NULL;
-#endif
 	
 	double FLOPS = 0.0;
 	double TIME = 0.0;
 	
-        cudaError_t cuerror;
+  cudaError_t cuerror;
 	cublasStatus_t status;
-        cublasHandle_t handle; 
+  cublasHandle_t handle; 
 
-        status = cublasCreate(&handle);
+  status = cublasCreate(&handle);
 	if (status != CUBLAS_STATUS_SUCCESS) {
 		printf ("!!!! CUBLAS initialization error\n");
 	}
@@ -121,20 +112,12 @@ void test_half_general(size_t m, size_t n, size_t k, size_t s, size_t r)
 		// init data on host
 		h_A = new __half[m*k];
 		h_B = new __half[k*n];
-#if 0
 		h_C = new __half[m*n];
-#else
-		h_C = new float[m*n];
-#endif		
 		for (size_t j = 0; j < i*i; j++)
 		{
-			h_A[j] = __float2half(1.0);
-			h_B[j] = __float2half(1.0);
-#if 0
+			h_A[j] = __float2half((float)drand48());
+			h_B[j] = __float2half((float)drand48());
 			h_C[j] = __float2half(1.0);
-#else
-			h_C[j] = 1.0;
-#endif
 		}
 		
 #ifndef MEASURE_KERNEL
@@ -151,11 +134,7 @@ void test_half_general(size_t m, size_t n, size_t k, size_t s, size_t r)
 		printf ("!!!! device memory allocation error (B)\n");
 		}
 
-#if 0
 		cuerror = cudaMalloc((void**)&d_C, m*n*sizeof(__half));
-#else
-		cuerror = cudaMalloc((void**)&d_C, m*n*sizeof(float));
-#endif
 		if (cuerror != cudaSuccess) {
 			printf ("!!!! device memory allocation error (C)\n");
 		}
@@ -169,47 +148,35 @@ void test_half_general(size_t m, size_t n, size_t k, size_t s, size_t r)
 		if (status != CUBLAS_STATUS_SUCCESS) {
 			printf ("!!!! device access error (write B)\n");
 		}
-#if 0
 		status = cublasSetVector(m*n, sizeof(__half), h_C, 1, d_C, 1);
-#else
-		status = cublasSetVector(m*n, sizeof(float), h_C, 1, d_C, 1);
-#endif
 		if (status != CUBLAS_STATUS_SUCCESS) {
 			printf ("!!!! device access error (write C)\n");
 		}
-                __half alpha = __float2half(1.0);
-#if 0
+    __half alpha = __float2half(1.0);
 		__half beta  = __float2half(0.0);
-#else
-		float beta  = 1.0;
-#endif
 #ifdef MEASURE_KERNEL
 		timer_start();
 #endif
-                for ( int z = 0; z < s; ++z ) {
-#if 0
+    for ( int z = 0; z < s; ++z ) {
 		  cublasHgemm(handle, CUBLAS_OP_N, CUBLAS_OP_N, m, n, k, &alpha, d_A, m, d_B, k, &beta, d_C, m);
-#else
-		  cublasGemmEx(handle, CUBLAS_OP_N, CUBLAS_OP_N, m, n, k, &alpha, d_A, CUDA_R_16F, m, d_B, CUDA_R_16F, k, &beta, d_C, CUDA_R_32F, m, CUDA_R_32F, CUBLAS_GEMM_DEFAULT_TENSOR_OP);
-#endif     
-           }
-                cudaDeviceSynchronize();
+    }
+    cudaDeviceSynchronize();
 #ifdef MEASURE_KERNEL
 		TIME = timer_stop();
 #endif
 
 		cuerror = cudaFree(d_A);
-		if (status != cudaSuccess) {
+		if (cuerror != cudaSuccess) {
 			printf ("!!!! memory free error (A)\n");
 		}
 
 		cuerror = cudaFree(d_B);
-		if (status != cudaSuccess) {
+		if (cuerror != cudaSuccess) {
 			printf ("!!!! memory free error (B)\n");
 		}
 
 		cuerror = cudaFree(d_C);
-		if (status != cudaSuccess) {
+		if (cuerror != cudaSuccess) {
 			printf ("!!!! memory free error (C)\n");
 		}
 		
@@ -233,7 +200,388 @@ void test_half_general(size_t m, size_t n, size_t k, size_t s, size_t r)
 	}
 }
 
-void test_float_general(size_t m, size_t n, size_t k, size_t s, size_t r)
+void test_half_float_general(size_t m, size_t n, size_t k, size_t s, size_t r)
+{
+	// host-side allocation
+	__half* h_A = NULL;
+	__half* h_B = NULL;
+  float* h_C = NULL;
+
+	// Allocate memory on GFX
+	__half* d_A = NULL;
+	__half* d_B = NULL;
+	float* d_C = NULL;
+	
+	double FLOPS = 0.0;
+	double TIME = 0.0;
+	
+  cudaError_t cuerror;
+	cublasStatus_t status;
+  cublasHandle_t handle; 
+
+  status = cublasCreate(&handle);
+	if (status != CUBLAS_STATUS_SUCCESS) {
+		printf ("!!!! CUBLAS initialization error\n");
+	}
+
+	status = cublasSetMathMode(handle, CUBLAS_TENSOR_OP_MATH );  /* CUBLAS_DEFAULT_MATH */	
+	if (status != CUBLAS_STATUS_SUCCESS) {
+		printf ("!!!! CUBLAS set MathMode error\n");
+	}
+
+	std::cout << std::endl;
+
+	for (size_t i = 0; i <= r; i ++)
+	{
+		FLOPS = 2.0*((double)m)*((double)n)*((double)k);
+		
+		// init data on host
+		h_A = new __half[m*k];
+		h_B = new __half[k*n];
+		h_C = new float[m*n];
+		for (size_t j = 0; j < i*i; j++)
+		{
+			h_A[j] = __float2half((float)drand48());
+			h_B[j] = __float2half((float)drand48());
+			h_C[j] = 1.0;
+		}
+		
+#ifndef MEASURE_KERNEL
+		timer_start();
+#endif
+		
+		cuerror = cudaMalloc((void**)&d_A, m*k*sizeof(__half));
+		if (cuerror != cudaSuccess) {
+		printf ("!!!! device memory allocation error (A)\n");
+		}
+
+		cuerror = cudaMalloc((void**)&d_B, k*n*sizeof(__half));
+		if (cuerror != cudaSuccess) {
+		printf ("!!!! device memory allocation error (B)\n");
+		}
+
+		cuerror = cudaMalloc((void**)&d_C, m*n*sizeof(float));
+		if (cuerror != cudaSuccess) {
+			printf ("!!!! device memory allocation error (C)\n");
+		}
+
+		status = cublasSetVector(m*k, sizeof(__half), h_A, 1, d_A, 1);
+		if (status != CUBLAS_STATUS_SUCCESS) {
+			printf ("!!!! device access error (write A)\n");
+		}
+
+		status = cublasSetVector(k*n, sizeof(__half), h_B, 1, d_B, 1);
+		if (status != CUBLAS_STATUS_SUCCESS) {
+			printf ("!!!! device access error (write B)\n");
+		}
+
+    status = cublasSetVector(m*n, sizeof(float), h_C, 1, d_C, 1);
+		if (status != CUBLAS_STATUS_SUCCESS) {
+			printf ("!!!! device access error (write C)\n");
+		}
+    __half alpha = __float2half(1.0);
+		float beta  = 1.0;
+#ifdef MEASURE_KERNEL
+		timer_start();
+#endif
+    for ( int z = 0; z < s; ++z ) {
+		  cublasGemmEx(handle, CUBLAS_OP_N, CUBLAS_OP_N, m, n, k, &alpha, d_A, CUDA_R_16F, m, d_B, CUDA_R_16F, k, &beta, d_C, CUDA_R_32F, m, CUBLAS_COMPUTE_32F, CUBLAS_GEMM_DEFAULT_TENSOR_OP);
+    }
+    cudaDeviceSynchronize();
+#ifdef MEASURE_KERNEL
+		TIME = timer_stop();
+#endif
+
+		cuerror = cudaFree(d_A);
+		if (cuerror != cudaSuccess) {
+			printf ("!!!! memory free error (A)\n");
+		}
+
+		cuerror = cudaFree(d_B);
+		if (cuerror != cudaSuccess) {
+			printf ("!!!! memory free error (B)\n");
+		}
+
+		cuerror = cudaFree(d_C);
+		if (cuerror != cudaSuccess) {
+			printf ("!!!! memory free error (C)\n");
+		}
+		
+#ifndef MEASURE_KERNEL
+		TIME = timer_stop();
+#endif		
+	
+		delete[] h_A;
+		delete[] h_B;
+		delete[] h_C;
+		
+		// Print results
+		std::cout << i << ";" << m << ";" << n << ";" << k << ";" << TIME/((double)s) << ";" << (FLOPS/(1e9))/(TIME/(double)s) << std::endl;
+	}
+	
+	std::cout << std::endl;
+	
+	status = cublasDestroy(handle);
+	if (status != CUBLAS_STATUS_SUCCESS) {
+		printf ("!!!! shutdown error\n");
+	}
+}
+
+void test_bfloat_float_general(size_t m, size_t n, size_t k, size_t s, size_t r)
+{
+	// host-side allocation
+	__nv_bfloat16* h_A = NULL;
+	__nv_bfloat16* h_B = NULL;
+  float* h_C = NULL;
+
+	// Allocate memory on GFX
+	__nv_bfloat16* d_A = NULL;
+	__nv_bfloat16* d_B = NULL;
+	float* d_C = NULL;
+	
+	double FLOPS = 0.0;
+	double TIME = 0.0;
+	
+  cudaError_t cuerror;
+	cublasStatus_t status;
+  cublasHandle_t handle; 
+
+  status = cublasCreate(&handle);
+	if (status != CUBLAS_STATUS_SUCCESS) {
+		printf ("!!!! CUBLAS initialization error\n");
+	}
+
+	status = cublasSetMathMode(handle, CUBLAS_TENSOR_OP_MATH );  /* CUBLAS_DEFAULT_MATH */	
+	if (status != CUBLAS_STATUS_SUCCESS) {
+		printf ("!!!! CUBLAS set MathMode error\n");
+	}
+
+	std::cout << std::endl;
+
+	for (size_t i = 0; i <= r; i ++)
+	{
+		FLOPS = 2.0*((double)m)*((double)n)*((double)k);
+		
+		// init data on host
+		h_A = new __nv_bfloat16[m*k];
+		h_B = new __nv_bfloat16[k*n];
+		h_C = new float[m*n];
+		for (size_t j = 0; j < i*i; j++)
+		{
+			h_A[j] = __float2bfloat16((float)drand48());
+			h_B[j] = __float2bfloat16((float)drand48());
+			h_C[j] = 1.0;
+		}
+		
+#ifndef MEASURE_KERNEL
+		timer_start();
+#endif
+		
+		cuerror = cudaMalloc((void**)&d_A, m*k*sizeof(__nv_bfloat16));
+		if (cuerror != cudaSuccess) {
+		printf ("!!!! device memory allocation error (A)\n");
+		}
+
+		cuerror = cudaMalloc((void**)&d_B, k*n*sizeof(__nv_bfloat16));
+		if (cuerror != cudaSuccess) {
+		printf ("!!!! device memory allocation error (B)\n");
+		}
+
+		cuerror = cudaMalloc((void**)&d_C, m*n*sizeof(float));
+		if (cuerror != cudaSuccess) {
+			printf ("!!!! device memory allocation error (C)\n");
+		}
+
+		status = cublasSetVector(m*k, sizeof(__nv_bfloat16), h_A, 1, d_A, 1);
+		if (status != CUBLAS_STATUS_SUCCESS) {
+			printf ("!!!! device access error (write A)\n");
+		}
+
+		status = cublasSetVector(k*n, sizeof(__nv_bfloat16), h_B, 1, d_B, 1);
+		if (status != CUBLAS_STATUS_SUCCESS) {
+			printf ("!!!! device access error (write B)\n");
+		}
+
+    status = cublasSetVector(m*n, sizeof(float), h_C, 1, d_C, 1);
+		if (status != CUBLAS_STATUS_SUCCESS) {
+			printf ("!!!! device access error (write C)\n");
+		}
+    __nv_bfloat16 alpha = __float2bfloat16(1.0);
+		float beta  = 1.0;
+#ifdef MEASURE_KERNEL
+		timer_start();
+#endif
+    for ( int z = 0; z < s; ++z ) {
+		  cublasGemmEx(handle, CUBLAS_OP_N, CUBLAS_OP_N, m, n, k, &alpha, d_A, CUDA_R_16BF, m, d_B, CUDA_R_16BF, k, &beta, d_C, CUDA_R_32F, m, CUBLAS_COMPUTE_32F, CUBLAS_GEMM_DEFAULT_TENSOR_OP);
+    }
+    cudaDeviceSynchronize();
+#ifdef MEASURE_KERNEL
+		TIME = timer_stop();
+#endif
+
+		cuerror = cudaFree(d_A);
+		if (cuerror != cudaSuccess) {
+			printf ("!!!! memory free error (A)\n");
+		}
+
+		cuerror = cudaFree(d_B);
+		if (cuerror != cudaSuccess) {
+			printf ("!!!! memory free error (B)\n");
+		}
+
+		cuerror = cudaFree(d_C);
+		if (cuerror != cudaSuccess) {
+			printf ("!!!! memory free error (C)\n");
+		}
+		
+#ifndef MEASURE_KERNEL
+		TIME = timer_stop();
+#endif		
+	
+		delete[] h_A;
+		delete[] h_B;
+		delete[] h_C;
+		
+		// Print results
+		std::cout << i << ";" << m << ";" << n << ";" << k << ";" << TIME/((double)s) << ";" << (FLOPS/(1e9))/(TIME/(double)s) << std::endl;
+	}
+	
+	std::cout << std::endl;
+	
+	status = cublasDestroy(handle);
+	if (status != CUBLAS_STATUS_SUCCESS) {
+		printf ("!!!! shutdown error\n");
+	}
+}
+
+void test_bfloat_bfloat_general(size_t m, size_t n, size_t k, size_t s, size_t r)
+{
+	// host-side allocation
+	__nv_bfloat16* h_A = NULL;
+	__nv_bfloat16* h_B = NULL;
+  __nv_bfloat16* h_C = NULL;
+
+	// Allocate memory on GFX
+	__nv_bfloat16* d_A = NULL;
+	__nv_bfloat16* d_B = NULL;
+	__nv_bfloat16* d_C = NULL;
+	
+	double FLOPS = 0.0;
+	double TIME = 0.0;
+	
+  cudaError_t cuerror;
+	cublasStatus_t status;
+  cublasHandle_t handle; 
+
+  status = cublasCreate(&handle);
+	if (status != CUBLAS_STATUS_SUCCESS) {
+		printf ("!!!! CUBLAS initialization error\n");
+	}
+
+	status = cublasSetMathMode(handle, CUBLAS_TENSOR_OP_MATH );  /* CUBLAS_DEFAULT_MATH */	
+	if (status != CUBLAS_STATUS_SUCCESS) {
+		printf ("!!!! CUBLAS set MathMode error\n");
+	}
+
+	std::cout << std::endl;
+
+	for (size_t i = 0; i <= r; i ++)
+	{
+		FLOPS = 2.0*((double)m)*((double)n)*((double)k);
+		
+		// init data on host
+		h_A = new __nv_bfloat16[m*k];
+		h_B = new __nv_bfloat16[k*n];
+		h_C = new __nv_bfloat16[m*n];
+		for (size_t j = 0; j < i*i; j++)
+		{
+			h_A[j] = __float2bfloat16((float)drand48());
+			h_B[j] = __float2bfloat16((float)drand48());
+			h_C[j] = __float2bfloat16(1.0);
+		}
+		
+#ifndef MEASURE_KERNEL
+		timer_start();
+#endif
+		
+		cuerror = cudaMalloc((void**)&d_A, m*k*sizeof(__nv_bfloat16));
+		if (cuerror != cudaSuccess) {
+		printf ("!!!! device memory allocation error (A)\n");
+		}
+
+		cuerror = cudaMalloc((void**)&d_B, k*n*sizeof(__nv_bfloat16));
+		if (cuerror != cudaSuccess) {
+		printf ("!!!! device memory allocation error (B)\n");
+		}
+
+		cuerror = cudaMalloc((void**)&d_C, m*n*sizeof(__nv_bfloat16));
+		if (cuerror != cudaSuccess) {
+			printf ("!!!! device memory allocation error (C)\n");
+		}
+
+		status = cublasSetVector(m*k, sizeof(__nv_bfloat16), h_A, 1, d_A, 1);
+		if (status != CUBLAS_STATUS_SUCCESS) {
+			printf ("!!!! device access error (write A)\n");
+		}
+
+		status = cublasSetVector(k*n, sizeof(__nv_bfloat16), h_B, 1, d_B, 1);
+		if (status != CUBLAS_STATUS_SUCCESS) {
+			printf ("!!!! device access error (write B)\n");
+		}
+
+    status = cublasSetVector(m*n, sizeof(__nv_bfloat16), h_C, 1, d_C, 1);
+		if (status != CUBLAS_STATUS_SUCCESS) {
+			printf ("!!!! device access error (write C)\n");
+		}
+    __nv_bfloat16 alpha = __float2bfloat16(1.0);
+		__nv_bfloat16 beta  = __float2bfloat16(1.0);
+#ifdef MEASURE_KERNEL
+		timer_start();
+#endif
+    for ( int z = 0; z < s; ++z ) {
+		  cublasGemmEx(handle, CUBLAS_OP_N, CUBLAS_OP_N, m, n, k, &alpha, d_A, CUDA_R_16BF, m, d_B, CUDA_R_16BF, k, &beta, d_C, CUDA_R_16BF, m, CUBLAS_COMPUTE_32F, CUBLAS_GEMM_DEFAULT_TENSOR_OP);
+    }
+    cudaDeviceSynchronize();
+#ifdef MEASURE_KERNEL
+		TIME = timer_stop();
+#endif
+
+		cuerror = cudaFree(d_A);
+		if (cuerror != cudaSuccess) {
+			printf ("!!!! memory free error (A)\n");
+		}
+
+		cuerror = cudaFree(d_B);
+		if (cuerror != cudaSuccess) {
+			printf ("!!!! memory free error (B)\n");
+		}
+
+		cuerror = cudaFree(d_C);
+		if (cuerror != cudaSuccess) {
+			printf ("!!!! memory free error (C)\n");
+		}
+		
+#ifndef MEASURE_KERNEL
+		TIME = timer_stop();
+#endif		
+	
+		delete[] h_A;
+		delete[] h_B;
+		delete[] h_C;
+		
+		// Print results
+		std::cout << i << ";" << m << ";" << n << ";" << k << ";" << TIME/((double)s) << ";" << (FLOPS/(1e9))/(TIME/(double)s) << std::endl;
+	}
+	
+	std::cout << std::endl;
+	
+	status = cublasDestroy(handle);
+	if (status != CUBLAS_STATUS_SUCCESS) {
+		printf ("!!!! shutdown error\n");
+	}
+}
+
+void test_float_general(size_t m, size_t n, size_t k, size_t s, size_t r, char use_tf32)
 {
 	// host-side allocation
 	float* h_A = NULL;
@@ -248,11 +596,11 @@ void test_float_general(size_t m, size_t n, size_t k, size_t s, size_t r)
 	double FLOPS = 0.0;
 	double TIME = 0.0;
 	
-        cudaError_t cuerror;
+  cudaError_t cuerror;
 	cublasStatus_t status;
-        cublasHandle_t handle; 
+  cublasHandle_t handle; 
 
-        status = cublasCreate(&handle);
+  status = cublasCreate(&handle);
 	if (status != CUBLAS_STATUS_SUCCESS) {
 		printf ("!!!! CUBLAS initialization error\n");
 	}
@@ -275,8 +623,8 @@ void test_float_general(size_t m, size_t n, size_t k, size_t s, size_t r)
 		
 		for (size_t j = 0; j < i*i; j++)
 		{
-			h_A[j] = 1.0;
-			h_B[j] = 1.0;
+			h_A[j] = (float)drand48();
+			h_B[j] = (float)drand48();
 			h_C[j] = 1.0;
 		}
 		
@@ -319,26 +667,30 @@ void test_float_general(size_t m, size_t n, size_t k, size_t s, size_t r)
 #ifdef MEASURE_KERNEL
 		timer_start();
 #endif
-                for ( int z = 0; z < s; ++z ) {
-		  cublasSgemm(handle, CUBLAS_OP_N, CUBLAS_OP_N, m, n, k, &alpha, d_A, m, d_B, k, &beta, d_C, m);
-                }
-                cudaDeviceSynchronize();
+    for ( int z = 0; z < s; ++z ) {
+      if ( use_tf32 != 0 ) {
+		    cublasGemmEx(handle, CUBLAS_OP_N, CUBLAS_OP_N, m, n, k, &alpha, d_A, CUDA_R_32F, m, d_B, CUDA_R_32F, k, &beta, d_C, CUDA_R_32F, m, CUBLAS_COMPUTE_32F_FAST_TF32, CUBLAS_GEMM_DEFAULT_TENSOR_OP);
+      } else {
+		    cublasSgemm(handle, CUBLAS_OP_N, CUBLAS_OP_N, m, n, k, &alpha, d_A, m, d_B, k, &beta, d_C, m);
+      }
+    }
+    cudaDeviceSynchronize();
 #ifdef MEASURE_KERNEL
 		TIME = timer_stop();
 #endif
 
 		cuerror = cudaFree(d_A);
-		if (status != cudaSuccess) {
+		if (cuerror != cudaSuccess) {
 			printf ("!!!! memory free error (A)\n");
 		}
 
 		cuerror = cudaFree(d_B);
-		if (status != cudaSuccess) {
+		if (cuerror != cudaSuccess) {
 			printf ("!!!! memory free error (B)\n");
 		}
 
 		cuerror = cudaFree(d_C);
-		if (status != cudaSuccess) {
+		if (cuerror != cudaSuccess) {
 			printf ("!!!! memory free error (C)\n");
 		}
 		
@@ -378,11 +730,11 @@ void test_double_general(size_t m, size_t n, size_t k, size_t s, size_t r)
 	double FLOPS = 0.0;
 	double TIME = 0.0;
 	
-        cudaError_t cuerror;
+  cudaError_t cuerror;
 	cublasStatus_t status;
-        cublasHandle_t handle; 
+  cublasHandle_t handle; 
 
-        status = cublasCreate(&handle);
+  status = cublasCreate(&handle);
 	if (status != CUBLAS_STATUS_SUCCESS) {
 		printf ("!!!! CUBLAS initialization error\n");
 	}
@@ -405,8 +757,8 @@ void test_double_general(size_t m, size_t n, size_t k, size_t s, size_t r)
 		
 		for (size_t j = 0; j < i*i; j++)
 		{
-			h_A[j] = 1.0;
-			h_B[j] = 1.0;
+			h_A[j] = drand48();
+			h_B[j] = drand48();
 			h_C[j] = 1.0;
 		}
 		
@@ -449,26 +801,26 @@ void test_double_general(size_t m, size_t n, size_t k, size_t s, size_t r)
 #ifdef MEASURE_KERNEL
 		timer_start();
 #endif
-                for ( int z = 0; z < s; ++z ) {
+    for ( int z = 0; z < s; ++z ) {
 		  cublasDgemm(handle, CUBLAS_OP_N, CUBLAS_OP_N, m, n, k, &alpha, d_A, m, d_B, k, &beta, d_C, m);
-                }
-                cudaDeviceSynchronize();
+    }
+    cudaDeviceSynchronize();
 #ifdef MEASURE_KERNEL
 		TIME = timer_stop();
 #endif
 
 		cuerror = cudaFree(d_A);
-		if (status != cudaSuccess) {
+		if (cuerror != cudaSuccess) {
 			printf ("!!!! memory free error (A)\n");
 		}
 
 		cuerror = cudaFree(d_B);
-		if (status != cudaSuccess) {
+		if (cuerror != cudaSuccess) {
 			printf ("!!!! memory free error (B)\n");
 		}
 
 		cuerror = cudaFree(d_C);
-		if (status != cudaSuccess) {
+		if (cuerror != cudaSuccess) {
 			printf ("!!!! memory free error (C)\n");
 		}
 		
@@ -492,30 +844,18 @@ void test_double_general(size_t m, size_t n, size_t k, size_t s, size_t r)
 	}
 }
 
-void write_help()
-{
-	std::cout << std::endl << "Wrong parameters! Please use:" << std::endl;
-	std::cout << "  device number" << std::endl;
-	std::cout << "	0: float; 1: double" << std::endl;
-	std::cout << "	start" << std::endl;
-	std::cout << "	stop" << std::endl;
-	std::cout << "	inc" << std::endl << std::endl;
-	std::cout << "Example: 0 0 32 4096 32" << std::endl << std::endl;
-}
-
 void write_help_general()
 {
 	std::cout << std::endl << "Wrong parameters! Please use:" << std::endl;
 	std::cout << "  device number" << std::endl;
-	std::cout << "	0: float; 1: double" << std::endl;
-	std::cout << "	m" << std::endl;
-	std::cout << "	n" << std::endl;
-	std::cout << "	k" << std::endl;
-        std::cout << "  s" << std::endl;
-        std::cout << "  r" << std::endl << std::endl;
-	std::cout << "Example: 0 0 4096 448 2048" << std::endl << std::endl;
+	std::cout << "  0: fp32; 1: fp64; 2: fp16 with fp16-acc; 3: fp16 with fp32-acc; 4: tf32; 5: bf16 wtih fp32-acc, fp32 out; 6: bf16 wtih fp32-acc, bf16 out" << std::endl;
+	std::cout << "  m" << std::endl;
+	std::cout << "  n" << std::endl;
+	std::cout << "  k" << std::endl;
+  std::cout << "  s" << std::endl;
+  std::cout << "  r" << std::endl << std::endl;
+	std::cout << "Example: 0 0 4096 448 2048 100 10" << std::endl << std::endl;
 }
-
 
 int main(int argc, char* argv[])
 {
@@ -525,7 +865,7 @@ int main(int argc, char* argv[])
 		return 0;
 	}
 
-        size_t dev = atoi(argv[1]);	
+  size_t dev = atoi(argv[1]);	
 	size_t mode = atoi(argv[2]);
 	size_t m = atoi(argv[3]);
 	size_t n = atoi(argv[4]);
@@ -533,11 +873,12 @@ int main(int argc, char* argv[])
 	size_t s = atoi(argv[6]);
 	size_t r = atoi(argv[7]);
 	
-        cudaSetDevice(dev);
+  cudaSetDevice(dev);
+  srand48(567);
 
 	if (mode == 0)
 	{
-		test_float_general(m, n, k, s, r);
+		test_float_general(m, n, k, s, r, 0);
 	}
 	else if (mode == 1)
 	{
@@ -545,9 +886,25 @@ int main(int argc, char* argv[])
 	}
 	else if (mode == 2)
 	{
-		test_half_general(m, n, k, s, r);
+		test_half_half_general(m, n, k, s, r);
 	}
-	else
+	else if (mode == 3)
+	{
+		test_half_float_general(m, n, k, s, r);
+	}
+	else if (mode == 4)
+	{
+		test_float_general(m, n, k, s, r, 1);
+	}
+  else if (mode == 5)
+  {
+		test_bfloat_float_general(m, n, k, s, r);
+  }
+  else if (mode == 6)
+  {
+		test_bfloat_bfloat_general(m, n, k, s, r);
+  }
+  else
 	{
 		write_help_general();
 		return 1;

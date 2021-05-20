@@ -28,8 +28,8 @@
 #############################################################################
 
 CC=g++
-CFLAGS=-O3 -I${CUDAROOT}/include 
-LDFLAGS=-L${CUDAROOT}/lib64 -lcublas -lcudart
+CFLAGS=-O3 
+LDFLAGS=-lcublas -lcudart
 
 default : cublas_test.cpp
 	$(CC) $(CFLAGS) $(LDFLAGS) -o CuBlasTEST cublas_test.cpp
