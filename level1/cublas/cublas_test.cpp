@@ -605,7 +605,11 @@ void test_float_general(size_t m, size_t n, size_t k, size_t s, size_t r, char u
 		printf ("!!!! CUBLAS initialization error\n");
 	}
 
-	status = cublasSetMathMode(handle, CUBLAS_DEFAULT_MATH );  /* CUBLAS_DEFAULT_MATH */	
+  if ( use_tf32 != 0 ) {
+    status = cublasSetMathMode( handle, CUBLAS_TF32_TENSOR_OP_MATH );
+  } else {
+    status = cublasSetMathMode( handle, CUBLAS_DEFAULT_MATH );  /* CUBLAS_DEFAULT_MATH */	
+  }
 	if (status != CUBLAS_STATUS_SUCCESS) {
 		printf ("!!!! CUBLAS set MathMode error\n");
 	}
@@ -668,11 +672,15 @@ void test_float_general(size_t m, size_t n, size_t k, size_t s, size_t r, char u
 		timer_start();
 #endif
     for ( int z = 0; z < s; ++z ) {
+#if 1
+		  cublasSgemm(handle, CUBLAS_OP_N, CUBLAS_OP_N, m, n, k, &alpha, d_A, m, d_B, k, &beta, d_C, m);
+#else
       if ( use_tf32 != 0 ) {
 		    cublasGemmEx(handle, CUBLAS_OP_N, CUBLAS_OP_N, m, n, k, &alpha, d_A, CUDA_R_32F, m, d_B, CUDA_R_32F, k, &beta, d_C, CUDA_R_32F, m, CUBLAS_COMPUTE_32F_FAST_TF32, CUBLAS_GEMM_DEFAULT_TENSOR_OP);
       } else {
 		    cublasSgemm(handle, CUBLAS_OP_N, CUBLAS_OP_N, m, n, k, &alpha, d_A, m, d_B, k, &beta, d_C, m);
       }
+#endif
     }
     cudaDeviceSynchronize();
 #ifdef MEASURE_KERNEL
