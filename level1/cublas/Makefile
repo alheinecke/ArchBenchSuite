@@ -28,7 +28,7 @@
 #############################################################################
 
 CC=g++
-CFLAGS=-O3 
+CFLAGS=-O3 -msse3
 LDFLAGS=-lcublas -lcudart
 
 default : cublas_test.cpp

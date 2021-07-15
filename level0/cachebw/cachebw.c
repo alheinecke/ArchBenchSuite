@@ -38,7 +38,7 @@
 #include <omp.h>
 #endif
 #ifdef USE_PERF_COUNTERS
-#include "./../common/counters.h"
+#include "./../common/counters_skx.h"
 #endif
 
 #ifdef NTIMES

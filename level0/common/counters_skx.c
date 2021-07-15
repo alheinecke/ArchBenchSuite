@@ -38,7 +38,7 @@
 #include <syscall.h>
 #include <linux/perf_event.h>
 
-#include "counters.h"
+#include "counters_skx.h"
 
 #ifdef __cplusplus
 extern "C" {

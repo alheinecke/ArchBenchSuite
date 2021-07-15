@@ -29,8 +29,8 @@
 /* Sanchit Misra (Intel Corp), Alexander Heinecke (Intel Corp.)
 ******************************************************************************/
 
-#ifndef COUNTERS_H
-#define COUNTERS_H
+#ifndef COUNTERS_SKX_H
+#define COUNTERS_SKX_H
 #include <stdint.h>
 
 #ifdef __cplusplus
@@ -130,5 +130,5 @@ void get_l2_bw_skx( const ctrs_skx_core *c, const double t, bw_gibs* bw );
 }
 #endif
 
-#endif /* COUNTERS_H */
+#endif /* COUNTERS_SKX_H */
 

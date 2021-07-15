@@ -41,8 +41,8 @@ all: writebw.exe
 #writebw.exe: writebw.c
 #	$(CC) $(CFLAGS) writebw.c -o writebw.exe
 
-writebw.exe: writebw.c ./../common/counters.c
-	$(CC) $(CFLAGS) writebw.c ./../common/counters.c -o writebw.exe
+writebw.exe: writebw.c ./../common/counters_skx.c
+	$(CC) $(CFLAGS) writebw.c ./../common/counters_skx.c -o writebw.exe
 
 clean:
 	rm -f writebw.exe *.o

@@ -43,7 +43,7 @@
 #endif
 
 #if defined(USE_UC_PERF_COUNTERS) || defined(USE_CORE_PERF_COUNTERS)
-#include "./../common/counters.h"
+#include "./../common/counters_skx.h"
 #endif
 
 #ifndef STREAM_ARRAY_SIZE
