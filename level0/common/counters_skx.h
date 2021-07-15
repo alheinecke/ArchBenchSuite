@@ -116,6 +116,7 @@ void read_skx_uc_ctrs( ctrs_skx_uc *c );
 void zero_skx_uc_ctrs( ctrs_skx_uc *c );
 void divi_skx_uc_ctrs( ctrs_skx_uc *c, uint64_t div );
 void difa_skx_uc_ctrs( const ctrs_skx_uc *a, const ctrs_skx_uc *b, ctrs_skx_uc* c );
+void get_act_ddr_bw_skx( const ctrs_skx_uc *c, const double t, bw_gibs* bw );
 void get_cas_ddr_bw_skx( const ctrs_skx_uc *c, const double t, bw_gibs* bw );
 void get_llc_bw_skx( const ctrs_skx_uc *c, const double t, bw_gibs* bw );
 

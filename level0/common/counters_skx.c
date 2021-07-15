@@ -529,6 +529,33 @@ void get_cas_ddr_bw_skx( const ctrs_skx_uc *c, const double t, bw_gibs* bw ) {
   bw->wr2 = 0;
 }
 
+void get_act_ddr_bw_skx( const ctrs_skx_uc *c, const double t, bw_gibs* bw ) {
+  uint64_t read_bytes;
+  uint64_t write_bytes;
+  int mc;
+  
+  read_bytes  = 0;
+  write_bytes = 0;
+
+  if ( c->exp != CTRS_EXP_DRAM_ACT ) { 
+    printf("exp type need to be CTRS_EXP_DRAM_CAS!\n");
+    bw->rd = 0;
+    bw->rd2 = 0;
+    bw->wr = 0;
+    bw->wr2 = 0;
+    return;
+  }
+   
+  for ( mc = 0; mc < SKX_NIMC; ++mc ) {
+    read_bytes  += c->act_rd[mc]*64;
+    write_bytes += c->act_wr[mc]*64;
+  }
+
+  bw->rd = (((double)read_bytes )/t)/(1024.0*1024.0*1024.0);
+  bw->wr = (((double)write_bytes)/t)/(1024.0*1024.0*1024.0);
+  bw->wr2 = 0;
+}
+
 void get_llc_bw_skx( const ctrs_skx_uc *c, const double t, bw_gibs* bw ) {
   uint64_t read_bytes;
   uint64_t write_bytes;
