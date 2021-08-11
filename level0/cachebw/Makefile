@@ -40,8 +40,8 @@ CFLAGS = -O3 -xCOMMON-AVX512 -qopenmp
 
 all: cachebw.exe
 
-cachebw.exe: cachebw.c ./../common/counters_skx.c
-	$(CC) $(CFLAGS) ./../common/counters_skx.c cachebw.c -o cachebw.exe
+cachebw.exe: cachebw.c ./../common/perf_counter_markers.c
+	$(CC) $(CFLAGS) ./../common/perf_counter_markers.c cachebw.c -o cachebw.exe
 
 clean:
 	rm -f cachebw.exe *.o

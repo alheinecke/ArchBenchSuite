@@ -40,8 +40,8 @@ all: readbw.exe
 #readbw.exe: readbw.c
 #	$(CC) $(CFLAGS) readbw.c -o readbw.exe
 
-readbw.exe: readbw.c ./../common/counters_skx.c
-	$(CC) $(CFLAGS) readbw.c ./../common/counters_skx.c -o readbw.exe
+readbw.exe: readbw.c ./../common/perf_counter_markers.c
+	$(CC) $(CFLAGS) readbw.c ./../common/perf_counter_markers.c -o readbw.exe
 
 clean:
 	rm -f readbw.exe *.o

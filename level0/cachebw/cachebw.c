@@ -27,7 +27,7 @@
 ** SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.              **
 ******************************************************************************/
 
-#if 0
+#if 0 
 #define USE_PERF_COUNTERS
 #endif
 
@@ -38,7 +38,7 @@
 #include <omp.h>
 #endif
 #ifdef USE_PERF_COUNTERS
-#include "./../common/counters_skx.h"
+#include "./../common/perf_counter_markers.h"
 #endif
 
 #ifdef NTIMES
@@ -296,13 +296,13 @@ int main(int argc, char* argv[]) {
   size_t l_copies = 1;
   size_t i = 0;
 #ifdef USE_PERF_COUNTERS
-  ctrs_skx_uc a, b, s;
+  ctrs_uncore a, b, s;
   bw_gibs bw_cnt;
 
-  setup_skx_uc_ctrs( CTRS_EXP_CHA_LLC_LOOKUP_VICTIMS );
-  zero_skx_uc_ctrs( &a );
-  zero_skx_uc_ctrs( &b );
-  zero_skx_uc_ctrs( &s );
+  setup_uncore_ctrs( CTRS_EXP_CHA_LLC_LOOKUP_VICTIMS );
+  zero_uncore_ctrs( &a );
+  zero_uncore_ctrs( &b );
+  zero_uncore_ctrs( &s );
 #endif
 
 
@@ -359,16 +359,16 @@ int main(int argc, char* argv[]) {
     
     // run benchmark
 #ifdef USE_PERF_COUNTERS
-    read_skx_uc_ctrs( &a );
+    read_uncore_ctrs( &a );
 #endif
     gettimeofday(&l_startTime, NULL);
     run_benchmark( l_data, l_arraySize, l_copies, l_iters );
     gettimeofday(&l_endTime, NULL);
     l_avgTime = sec(l_startTime, l_endTime);
 #ifdef USE_PERF_COUNTERS
-    read_skx_uc_ctrs( &b );
-    difa_skx_uc_ctrs( &a, &b, &s );
-    divi_skx_uc_ctrs( &s, l_iters );
+    read_uncore_ctrs( &b );
+    difa_uncore_ctrs( &a, &b, &s );
+    divi_uncore_ctrs( &s, l_iters );
 #endif
     // postprocess timing 
     l_avgTime /= (double)l_iters;
@@ -376,7 +376,7 @@ int main(int argc, char* argv[]) {
     // output
     printf("%f,%f,%f\n", (l_size/l_copies)/1024.0, (((l_size/l_copies)*l_numThreads)/(1024.0*1024.0*1024.0))/l_avgTime, l_avgTime);
 #ifdef USE_PERF_COUNTERS
-    get_llc_bw_skx( &s, l_avgTime, &bw_cnt );
+    get_llc_bw_uncore_ctrs( &s, l_avgTime, &bw_cnt );
     printf("%f,%f,%f,%f,%f (counters)\n", (l_size/l_copies)/1024.0, bw_cnt.rd, bw_cnt.wr, bw_cnt.wr2, l_avgTime);
 #endif
     free(l_data);

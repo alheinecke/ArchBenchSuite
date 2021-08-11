@@ -28,7 +28,7 @@
 ******************************************************************************/
 
 #if 0
-#define USE_UC_PERF_COUNTERS
+#define USE_UNCORE_PERF_COUNTERS
 #if 0
 #define USE_DRAM_COUNTERS
 #endif
@@ -40,8 +40,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/time.h>
-#if defined(USE_UC_PERF_COUNTERS) || defined(USE_CORE_PERF_COUNTERS)
-#include "./../common/counters_skx.h"
+#if defined(USE_UNCORE_PERF_COUNTERS) || defined(USE_CORE_PERF_COUNTERS)
+#include "./../common/perf_counter_markers.h"
 #endif
 
 #ifndef STREAM_ARRAY_SIZE
@@ -78,27 +78,27 @@ int main(int argc, char* argv[]) {
   double l_size = (double)((size_t)STREAM_ARRAY_SIZE)*sizeof(double);
   double l_sum = (double)((size_t)STREAM_ARRAY_SIZE);
   struct timeval l_startTime, l_endTime;
-#ifdef USE_UC_PERF_COUNTERS
-  ctrs_skx_uc a, b, s;
+#ifdef USE_UNCORE_PERF_COUNTERS
+  ctrs_uncore a, b, s;
   bw_gibs bw_min, bw_max, bw_avg;
 
 #ifdef USE_DRAM_COUNTERS
-  setup_skx_uc_ctrs( CTRS_EXP_DRAM_CAS );
+  setup_uncore_ctrs( CTRS_EXP_DRAM_CAS );
 #else
-  setup_skx_uc_ctrs( CTRS_EXP_CHA_LLC_LOOKUP_VICTIMS );
+  setup_uncore_ctrs( CTRS_EXP_CHA_LLC_LOOKUP_VICTIMS );
 #endif
-  zero_skx_uc_ctrs( &a );
-  zero_skx_uc_ctrs( &b );
-  zero_skx_uc_ctrs( &s );
+  zero_uncore_ctrs( &a );
+  zero_uncore_ctrs( &b );
+  zero_uncore_ctrs( &s );
 #endif
 #ifdef USE_CORE_PERF_COUNTERS
-  ctrs_skx_core a, b, s;
+  ctrs_core a, b, s;
   bw_gibs bw_min, bw_max, bw_avg;
 
-  setup_skx_core_ctrs( CTRS_EXP_L2_BW );
-  zero_skx_core_ctrs( &a );
-  zero_skx_core_ctrs( &b );
-  zero_skx_core_ctrs( &s );
+  setup_core_ctrs( CTRS_EXP_L2_BW );
+  zero_core_ctrs( &a );
+  zero_core_ctrs( &b );
+  zero_core_ctrs( &s );
 #endif
 
   l_sum = ((l_sum*l_sum) + l_sum)/2;
@@ -113,11 +113,11 @@ int main(int argc, char* argv[]) {
     l_data[l_n] = (double)l_n;
   }
 
-#ifdef USE_UC_PERF_COUNTERS
-  read_skx_uc_ctrs( &a );
+#ifdef USE_UNCORE_PERF_COUNTERS
+  read_uncore_ctrs( &a );
 #endif
 #ifdef USE_CORE_PERF_COUNTERS
-  read_skx_core_ctrs( &a );
+  read_core_ctrs( &a );
 #endif
   // run benchmark
   for( l_i = 0; l_i < NTIMES; l_i++ ) {
@@ -138,15 +138,15 @@ int main(int argc, char* argv[]) {
     gettimeofday(&l_endTime, NULL);
     l_times[l_i] = sec(l_startTime, l_endTime);
   }
-#ifdef USE_UC_PERF_COUNTERS
-  read_skx_uc_ctrs( &b );
-  difa_skx_uc_ctrs( &a, &b, &s );
-  divi_skx_uc_ctrs( &s, NTIMES );
+#ifdef USE_UNCORE_PERF_COUNTERS
+  read_uncore_ctrs( &b );
+  difa_uncore_ctrs( &a, &b, &s );
+  divi_uncore_ctrs( &s, NTIMES );
 #endif
 #ifdef USE_CORE_PERF_COUNTERS
-  read_skx_core_ctrs( &b );
-  difa_skx_core_ctrs( &a, &b, &s );
-  divi_skx_core_ctrs( &s, NTIMES );
+  read_core_ctrs( &b );
+  difa_core_ctrs( &a, &b, &s );
+  divi_core_ctrs( &s, NTIMES );
 #endif
   
   // postprocess timing
@@ -161,27 +161,27 @@ int main(int argc, char* argv[]) {
   l_avgTime /= (double)NTIMES;
   
   // output
-  printf("AVG GiB/s: %f\n", (l_size/(1024.0*1024.0*1024.0))/l_avgTime);
-  printf("MAX GiB/s: %f\n", (l_size/(1024.0*1024.0*1024.0))/l_minTime);
-  printf("MIN GiB/s: %f\n", (l_size/(1024.0*1024.0*1024.0))/l_maxTime);
-#ifdef USE_UC_PERF_COUNTERS
+  printf("AVG GiB/s  (calculated): %f\n", (l_size/(1024.0*1024.0*1024.0))/l_avgTime);
+  printf("MAX GiB/s  (calculated): %f\n", (l_size/(1024.0*1024.0*1024.0))/l_minTime);
+  printf("MIN GiB/s  (calculated): %f\n", (l_size/(1024.0*1024.0*1024.0))/l_maxTime);
+#ifdef USE_UNCORE_PERF_COUNTERS
 #ifdef USE_DRAM_COUNTERS
-  get_cas_ddr_bw_skx( &s, l_maxTime, &bw_min );
-  get_cas_ddr_bw_skx( &s, l_minTime, &bw_max );
-  get_cas_ddr_bw_skx( &s, l_avgTime, &bw_avg );
+  get_cas_ddr_bw_uncore_ctrs( &s, l_maxTime, &bw_min );
+  get_cas_ddr_bw_uncore_ctrs( &s, l_minTime, &bw_max );
+  get_cas_ddr_bw_uncore_ctrs( &s, l_avgTime, &bw_avg );
 #else
-  get_llc_bw_skx( &s, l_maxTime, &bw_min );
-  get_llc_bw_skx( &s, l_minTime, &bw_max );
-  get_llc_bw_skx( &s, l_avgTime, &bw_avg );
+  get_llc_bw_uncore_ctrs( &s, l_maxTime, &bw_min );
+  get_llc_bw_uncore_ctrs( &s, l_minTime, &bw_max );
+  get_llc_bw_uncore_ctrs( &s, l_avgTime, &bw_avg );
 #endif
-  printf("AVG GiB/s: %f\n", bw_avg.rd);
-  printf("MAX GiB/s: %f\n", bw_max.rd);
-  printf("MIN GiB/s: %f\n", bw_min.rd);
+  printf("AVG GiB/s (uncore ctrs): %f\n", bw_avg.rd);
+  printf("MAX GiB/s (uncore ctrs): %f\n", bw_max.rd);
+  printf("MIN GiB/s (uncore ctrs): %f\n", bw_min.rd);
 #endif
 #ifdef USE_CORE_PERF_COUNTERS
-  get_l2_bw_skx( &s, l_maxTime, &bw_min );
-  get_l2_bw_skx( &s, l_minTime, &bw_max );
-  get_l2_bw_skx( &s, l_avgTime, &bw_avg );
+  get_l2_bw_core_ctrs( &s, l_maxTime, &bw_min );
+  get_l2_bw_core_ctrs( &s, l_minTime, &bw_max );
+  get_l2_bw_core_ctrs( &s, l_avgTime, &bw_avg );
   printf("AVG GiB/s (IN   L2): %f\n", bw_avg.rd);
   printf("MAX GiB/s (IN   L2): %f\n", bw_max.rd);
   printf("MIN GiB/s (IN   L2): %f\n", bw_min.rd);

@@ -28,7 +28,7 @@
 ******************************************************************************/
 
 #if 0
-#define USE_UC_PERF_COUNTERS
+#define USE_UNCORE_PERF_COUNTERS
 #endif
 #if 0
 #define USE_CORE_PERF_COUNTERS
@@ -42,8 +42,8 @@
 #include <omp.h>
 #endif
 
-#if defined(USE_UC_PERF_COUNTERS) || defined(USE_CORE_PERF_COUNTERS)
-#include "./../common/counters_skx.h"
+#if defined(USE_UNCORE_PERF_COUNTERS) || defined(USE_CORE_PERF_COUNTERS)
+#include "./../common/perf_counter_markers.h"
 #endif
 
 #ifndef STREAM_ARRAY_SIZE
@@ -79,23 +79,23 @@ int main(int argc, char* argv[]) {
   double l_avgTime, l_minTime, l_maxTime;
   double l_size = (double)((size_t)STREAM_ARRAY_SIZE)*sizeof(double);
   struct timeval l_startTime, l_endTime;
-#ifdef USE_UC_PERF_COUNTERS
-  ctrs_skx_uc a, b, s;
+#ifdef USE_UNCORE_PERF_COUNTERS
+  ctrs_uncore a, b, s;
   bw_gibs bw_cnt;
 
-  setup_skx_uc_ctrs( CTRS_EXP_CHA_LLC_LOOKUP_VICTIMS );
-  zero_skx_uc_ctrs( &a );
-  zero_skx_uc_ctrs( &b );
-  zero_skx_uc_ctrs( &s );
+  setup_uncore_ctrs( CTRS_EXP_CHA_LLC_LOOKUP_VICTIMS );
+  zero_uncore_ctrs( &a );
+  zero_uncore_ctrs( &b );
+  zero_uncore_ctrs( &s );
 #endif
 #ifdef USE_CORE_PERF_COUNTERS
-  ctrs_skx_core a, b, s;
+  ctrs_core a, b, s;
   bw_gibs bw_cnt;
 
-  setup_skx_core_ctrs( CTRS_EXP_L2_BW );
-  zero_skx_core_ctrs( &a );
-  zero_skx_core_ctrs( &b );
-  zero_skx_core_ctrs( &s );
+  setup_core_ctrs( CTRS_EXP_L2_BW );
+  zero_core_ctrs( &a );
+  zero_core_ctrs( &b );
+  zero_core_ctrs( &s );
 #endif
 
   posix_memalign((void**)&l_data, 4096, ((size_t)STREAM_ARRAY_SIZE)*sizeof(double));
@@ -111,11 +111,11 @@ int main(int argc, char* argv[]) {
 
   // run benchmark
   for( l_i = 0; l_i < NTIMES; l_i++ ) {
-#ifdef USE_UC_PERF_COUNTERS
-    read_skx_uc_ctrs( &a );
+#ifdef USE_UNCORE_PERF_COUNTERS
+    read_uncore_ctrs( &a );
 #endif
 #ifdef USE_CORE_PERF_COUNTERS
-    read_skx_core_ctrs( &a );
+    read_core_ctrs( &a );
 #endif
     gettimeofday(&l_startTime, NULL);
 
@@ -130,21 +130,21 @@ int main(int argc, char* argv[]) {
     }
 
     gettimeofday(&l_endTime, NULL);
-#ifdef USE_UC_PERF_COUNTERS
-    read_skx_uc_ctrs( &b );
-    difa_skx_uc_ctrs( &a, &b, &s );
+#ifdef USE_UNCORE_PERF_COUNTERS
+    read_uncore_ctrs( &b );
+    difa_uncore_ctrs( &a, &b, &s );
 #endif
 #ifdef USE_CORE_PERF_COUNTERS
-    read_skx_core_ctrs( &b );
-    difa_skx_core_ctrs( &a, &b, &s );
+    read_core_ctrs( &b );
+    difa_core_ctrs( &a, &b, &s );
 #endif
     l_times[l_i] = sec(l_startTime, l_endTime);
   }
-#ifdef USE_UC_PERF_COUNTERS
-  divi_skx_uc_ctrs( &s, NTIMES );
+#ifdef USE_UNCORE_PERF_COUNTERS
+  divi_uncore_ctrs( &s, NTIMES );
 #endif
 #ifdef USE_CORE_PERF_COUNTERS
-  divi_skx_core_ctrs( &s, NTIMES );
+  divi_core_ctrs( &s, NTIMES );
 #endif
 
   // postprocess timing
@@ -162,12 +162,12 @@ int main(int argc, char* argv[]) {
   printf("AVG MiB/s: %f\n", (l_size/(1024.0*1024.0))/l_avgTime);
   printf("MAX MiB/s: %f\n", (l_size/(1024.0*1024.0))/l_minTime);
   printf("MIN MiB/s: %f\n", (l_size/(1024.0*1024.0))/l_maxTime);
-#ifdef USE_UC_PERF_COUNTERS
-  get_llc_bw_skx( &s, l_avgTime, &bw_cnt );
+#ifdef USE_UNCORE_PERF_COUNTERS
+  get_llc_bw_uncore_ctrs( &s, l_avgTime, &bw_cnt );
   printf("%f,%f,%f,%f,%f (counters)\n", l_size/1024.0, bw_cnt.rd, bw_cnt.wr, bw_cnt.wr2, l_avgTime);
 #endif
 #ifdef USE_CORE_PERF_COUNTERS
-  get_l2_bw_skx( &s, l_avgTime, &bw_cnt );
+  get_l2_bw_core_ctrs( &s, l_avgTime, &bw_cnt );
   printf("%f,%f,%f,%f,%f,%f (counters)\n", l_size/1024.0, bw_cnt.rd, bw_cnt.wr, bw_cnt.wr2, bw_cnt.wr3, l_avgTime);
 #endif
   
