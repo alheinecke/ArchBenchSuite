@@ -182,18 +182,21 @@ int main(int argc, char* argv[]) {
   get_l2_bw_core_ctrs( &s, l_maxTime, &bw_min );
   get_l2_bw_core_ctrs( &s, l_minTime, &bw_max );
   get_l2_bw_core_ctrs( &s, l_avgTime, &bw_avg );
-  printf("AVG GiB/s (IN   L2): %f\n", bw_avg.rd);
-  printf("MAX GiB/s (IN   L2): %f\n", bw_max.rd);
-  printf("MIN GiB/s (IN   L2): %f\n", bw_min.rd);
-  printf("AVG GiB/s (OUT  L2): %f\n", bw_avg.wr);
-  printf("MAX GiB/s (OUT  L2): %f\n", bw_max.wr);
-  printf("MIN GiB/s (OUT  L2): %f\n", bw_min.wr);
-  printf("AVG GiB/s (DEM  L2): %f\n", bw_avg.wr2);
-  printf("MAX GiB/s (DEM  L2): %f\n", bw_max.wr2);
-  printf("MIN GiB/s (DEM  L2): %f\n", bw_min.wr2);
-  printf("AVG GiB/s (DROP L2): %f\n", bw_avg.wr3);
-  printf("MAX GiB/s (DROP L2): %f\n", bw_max.wr3);
-  printf("MIN GiB/s (DROP L2): %f\n", bw_min.wr3);
+  printf("AVG GiB/s (IN    L2): %f\n", bw_avg.rd);
+  printf("MAX GiB/s (IN    L2): %f\n", bw_max.rd);
+  printf("MIN GiB/s (IN    L2): %f\n", bw_min.rd);
+  printf("AVG GiB/s (OUTS  L2): %f\n", bw_avg.wr);
+  printf("MAX GiB/s (OUTS  L2): %f\n", bw_max.wr);
+  printf("MIN GiB/s (OUTS  L2): %f\n", bw_min.wr);
+  printf("AVG GiB/s (OUTNS L2): %f\n", bw_avg.wr2);
+  printf("MAX GiB/s (OUTNS L2): %f\n", bw_max.wr2);
+  printf("MIN GiB/s (OUTNS L2): %f\n", bw_min.wr2);
+  printf("AVG GiB/s (DEM   L2): %f\n", bw_avg.wr3);
+  printf("MAX GiB/s (DEM   L2): %f\n", bw_max.wr3);
+  printf("MIN GiB/s (DEM   L2): %f\n", bw_min.wr3);
+  printf("AVG GiB/s (DROP  L2): %f\n", bw_avg.wr4);
+  printf("MAX GiB/s (DROP  L2): %f\n", bw_max.wr4);
+  printf("MIN GiB/s (DROP  L2): %f\n", bw_min.wr4);
 #endif
 
   if((l_result/l_sum)-1 < 1e-10) {

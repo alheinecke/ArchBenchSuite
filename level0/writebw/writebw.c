@@ -168,7 +168,7 @@ int main(int argc, char* argv[]) {
 #endif
 #ifdef USE_CORE_PERF_COUNTERS
   get_l2_bw_core_ctrs( &s, l_avgTime, &bw_cnt );
-  printf("%f,%f,%f,%f,%f,%f (counters)\n", l_size/1024.0, bw_cnt.rd, bw_cnt.wr, bw_cnt.wr2, bw_cnt.wr3, l_avgTime);
+  printf("%f,%f,%f,%f,%f,%f,%f (counters)\n", l_size/1024.0, bw_cnt.rd, bw_cnt.wr, bw_cnt.wr2, bw_cnt.wr3, bw_cnt.wr4, l_avgTime);
 #endif
   
   return 0; 
