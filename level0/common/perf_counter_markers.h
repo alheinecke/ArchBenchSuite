@@ -187,7 +187,7 @@ void divi_uncore_ctrs( ctrs_uncore *c, uint64_t div );
 void difa_uncore_ctrs( const ctrs_uncore *a, const ctrs_uncore *b, ctrs_uncore* c );
 void get_act_ddr_bw_uncore_ctrs( const ctrs_uncore *c, const double t, bw_gibs* bw );
 void get_cas_ddr_bw_uncore_ctrs( const ctrs_uncore *c, const double t, bw_gibs* bw );
-void get_llc_bw_uncore_ctrs( const ctrs_uncore *c, const double t, bw_gibs* bw );
+void get_llc_victim_bw_uncore_ctrs( const ctrs_uncore *c, const double t, llc_victims* llc_vic );
 
 void setup_core_ctrs( ctrs_core_exp exp );
 void read_core_ctrs( ctrs_core *c );
