@@ -299,7 +299,7 @@ int main(int argc, char* argv[]) {
   ctrs_uncore a, b, s;
   bw_gibs bw_cnt;
 
-  setup_uncore_ctrs( CTRS_EXP_CHA_LLC_LOOKUP_VICTIMS );
+  setup_uncore_ctrs( CTRS_EXP_DRAM_CAS );
   zero_uncore_ctrs( &a );
   zero_uncore_ctrs( &b );
   zero_uncore_ctrs( &s );
@@ -376,8 +376,8 @@ int main(int argc, char* argv[]) {
     // output
     printf("%f,%f,%f\n", (l_size/l_copies)/1024.0, (((l_size/l_copies)*l_numThreads)/(1024.0*1024.0*1024.0))/l_avgTime, l_avgTime);
 #ifdef USE_PERF_COUNTERS
-    get_llc_bw_uncore_ctrs( &s, l_avgTime, &bw_cnt );
-    printf("%f,%f,%f,%f,%f (counters)\n", (l_size/l_copies)/1024.0, bw_cnt.rd, bw_cnt.wr, bw_cnt.wr2, l_avgTime);
+    get_cas_ddr_bw_uncore_ctrs( &s, l_avgTime, &bw_cnt );
+    printf("%f,%f,%f,%f (counters)\n", (l_size/l_copies)/1024.0, bw_cnt.rd, bw_cnt.wr, l_avgTime);
 #endif
     free(l_data);
   }

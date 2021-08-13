@@ -81,6 +81,7 @@ int main(int argc, char* argv[]) {
 #ifdef USE_UNCORE_PERF_COUNTERS
   ctrs_uncore a, b, s;
   bw_gibs bw_min, bw_max, bw_avg;
+  llc_victims llc_vic_min, llc_vic_max, llc_vic_avg;
 
 #ifdef USE_DRAM_COUNTERS
   setup_uncore_ctrs( CTRS_EXP_DRAM_CAS );
@@ -169,14 +170,17 @@ int main(int argc, char* argv[]) {
   get_cas_ddr_bw_uncore_ctrs( &s, l_maxTime, &bw_min );
   get_cas_ddr_bw_uncore_ctrs( &s, l_minTime, &bw_max );
   get_cas_ddr_bw_uncore_ctrs( &s, l_avgTime, &bw_avg );
-#else
-  get_llc_bw_uncore_ctrs( &s, l_maxTime, &bw_min );
-  get_llc_bw_uncore_ctrs( &s, l_minTime, &bw_max );
-  get_llc_bw_uncore_ctrs( &s, l_avgTime, &bw_avg );
-#endif
   printf("AVG GiB/s (uncore ctrs): %f\n", bw_avg.rd);
   printf("MAX GiB/s (uncore ctrs): %f\n", bw_max.rd);
   printf("MIN GiB/s (uncore ctrs): %f\n", bw_min.rd);
+#else
+  get_llc_victim_bw_uncore_ctrs( &s, l_maxTime, &llc_vic_max );
+  get_llc_victim_bw_uncore_ctrs( &s, l_minTime, &llc_vic_min );
+  get_llc_victim_bw_uncore_ctrs( &s, l_avgTime, &llc_vic_avg );
+  printf("AVG GiB/s (uncore ctrs): %f\n", llc_vic_avg.rd_bw);
+  printf("MAX GiB/s (uncore ctrs): %f\n", llc_vic_max.rd_bw);
+  printf("MIN GiB/s (uncore ctrs): %f\n", llc_vic_min.rd_bw);
+#endif
 #endif
 #ifdef USE_CORE_PERF_COUNTERS
   get_l2_bw_core_ctrs( &s, l_maxTime, &bw_min );
