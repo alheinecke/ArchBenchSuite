@@ -61,7 +61,7 @@
 #endif
 
 #if defined(USE_CORE_PERF_SNP) || defined(USE_CORE_PERF_L2IN) || defined(USE_CORE_PERF_IPC) || defined(USE_UNCORE_PERF_DRAM_BW) || defined(USE_UNCORE_PERF_LLC_VICTIMS) || defined(USE_UNCORE_PERF_CHA_UTIL) || defined(USE_UNCORE_PREF_AK_UTIL) || defined(USE_UNCORE_PREF_IV_UTIL)
-#  include "../../external_aux/perf_counter_markers.h"
+#  include "../common/perf_counter_markers.h"
 #endif
 
 inline double sec(struct timeval start, struct timeval end) {
@@ -318,12 +318,12 @@ int main(int argc, char* argv[]) {
 #if defined(USE_CORE_PERF_SNP) || defined(USE_CORE_PERF_L2IN) || defined(USE_CORE_PERF_IPC)
   read_core_ctrs( &cc_b );
   difa_core_ctrs( &cc_a, &cc_b, &cc_s );
-  divi_core_ctrs( &cc_s, iters );
+  divi_core_ctrs( &cc_s, l_n_oiters );
 #endif
 #if defined(USE_UNCORE_PERF_DRAM_BW) || defined(USE_UNCORE_PERF_LLC_VICTIMS) || defined(USE_UNCORE_PERF_CHA_UTIL) || defined(USE_UNCORE_PREF_AK_UTIL) || defined(USE_UNCORE_PREF_IV_UTIL)
   read_uncore_ctrs( &uc_b );
   difa_uncore_ctrs( &uc_a, &uc_b, &uc_s );
-  divi_uncore_ctrs( &uc_s, iters );
+  divi_uncore_ctrs( &uc_s, l_n_oiters );
 #endif
   l_avgtime = sec(l_startTime, l_endTime)/((double)(l_n_oiters));
   printf("Iteration Volume in GiB (levels * bytes * inner iterations): %f\n", l_totalGiB );
