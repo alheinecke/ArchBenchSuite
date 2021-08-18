@@ -1,0 +1,439 @@
+/******************************************************************************
+** Copyright (c) 2013-2021, Alexander Heinecke                               **
+** All rights reserved.                                                      **
+**                                                                           **
+** Redistribution and use in source and binary forms, with or without        **
+** modification, are permitted provided that the following conditions        **
+** are met:                                                                  **
+** 1. Redistributions of source code must retain the above copyright         **
+**    notice, this list of conditions and the following disclaimer.          **
+** 2. Redistributions in binary form must reproduce the above copyright      **
+**    notice, this list of conditions and the following disclaimer in the    **
+**    documentation and/or other materials provided with the distribution.   **
+** 3. Neither the name of the copyright holder nor the names of its          **
+**    contributors may be used to endorse or promote products derived        **
+**    from this software without specific prior written permission.          **
+**                                                                           **
+** THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS       **
+** "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT         **
+** LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR     **
+** A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT      **
+** HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,    **
+** SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED  **
+** TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR    **
+** PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF    **
+** LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING      **
+** NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS        **
+** SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.              **
+******************************************************************************/
+
+#if 0
+#define USE_CORE_PERF_SNP
+#endif
+#if 0
+#define USE_CORE_PERF_L2IN
+#endif
+#if 0
+#define USE_CORE_PERF_IPC
+#endif
+#if 0
+#define USE_UNCORE_PERF_DRAM_BW
+#endif
+#if 0
+#define USE_UNCORE_PERF_LLC_VICTIMS
+#endif
+#if 0
+#define USE_UNCORE_PERF_CHA_UTIL
+#endif
+#if 0
+#define USE_UNCORE_PREF_AK_UTIL
+#endif
+#if 0
+#define USE_UNCORE_PREF_IV_UTIL
+#endif
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/time.h>
+#if defined(_OPENMP)
+#include <omp.h>
+#endif
+
+#if defined(USE_CORE_PERF_SNP) || defined(USE_CORE_PERF_L2IN) || defined(USE_CORE_PERF_IPC) || defined(USE_UNCORE_PERF_DRAM_BW) || defined(USE_UNCORE_PERF_LLC_VICTIMS) || defined(USE_UNCORE_PERF_CHA_UTIL) || defined(USE_UNCORE_PREF_AK_UTIL) || defined(USE_UNCORE_PREF_IV_UTIL)
+#  include "../../external_aux/perf_counter_markers.h"
+#endif
+
+inline double sec(struct timeval start, struct timeval end) {
+  return ((double)(((end.tv_sec * 1000000 + end.tv_usec) - (start.tv_sec * 1000000 + start.tv_usec)))) / 1.0e6;
+}
+
+void read_buffer( char* i_buffer, size_t i_length ) {
+#ifdef __AVX512F__
+  __asm__ __volatile__("movq %0, %%r8\n\t"
+                       "movq %1, %%r9\n\t"
+                       "1:\n\t"
+                       "subq $2048, %%r9\n\t"
+                       "vmovupd     0(%%r8),   %%zmm0\n\t"
+                       "vmovupd    64(%%r8),   %%zmm1\n\t"
+                       "vmovupd   128(%%r8),   %%zmm2\n\t"
+                       "vmovupd   192(%%r8),   %%zmm3\n\t"
+                       "vmovupd   256(%%r8),   %%zmm4\n\t"
+                       "vmovupd   320(%%r8),   %%zmm5\n\t"
+                       "vmovupd   384(%%r8),   %%zmm6\n\t"
+                       "vmovupd   448(%%r8),   %%zmm7\n\t"
+                       "vmovupd   512(%%r8),   %%zmm8\n\t"
+                       "vmovupd   576(%%r8),   %%zmm9\n\t"
+                       "vmovupd   640(%%r8),  %%zmm10\n\t"
+                       "vmovupd   704(%%r8),  %%zmm11\n\t"
+                       "vmovupd   768(%%r8),  %%zmm12\n\t"
+                       "vmovupd   832(%%r8),  %%zmm13\n\t"
+                       "vmovupd   896(%%r8),  %%zmm14\n\t"
+                       "vmovupd   960(%%r8),  %%zmm15\n\t"
+                       "vmovupd  1024(%%r8),  %%zmm16\n\t"
+                       "vmovupd  1088(%%r8),  %%zmm17\n\t"
+                       "vmovupd  1152(%%r8),  %%zmm18\n\t"
+                       "vmovupd  1216(%%r8),  %%zmm19\n\t"
+                       "vmovupd  1280(%%r8),  %%zmm20\n\t"
+                       "vmovupd  1344(%%r8),  %%zmm21\n\t"
+                       "vmovupd  1408(%%r8),  %%zmm22\n\t"
+                       "vmovupd  1472(%%r8),  %%zmm23\n\t"
+                       "vmovupd  1536(%%r8),  %%zmm24\n\t"
+                       "vmovupd  1600(%%r8),  %%zmm25\n\t"
+                       "vmovupd  1664(%%r8),  %%zmm26\n\t"
+                       "vmovupd  1728(%%r8),  %%zmm27\n\t"
+                       "vmovupd  1792(%%r8),  %%zmm28\n\t"
+                       "vmovupd  1856(%%r8),  %%zmm29\n\t"
+                       "vmovupd  1920(%%r8),  %%zmm30\n\t"
+                       "vmovupd  1984(%%r8),  %%zmm31\n\t"
+                       "addq $2048, %%r8\n\t"
+                       "cmpq $0, %%r9\n\t"
+                       "jg 1b\n\t"
+                       : : "m"(i_buffer), "r"(i_length) : "r8","r9","xmm0","xmm1","xmm2","xmm3","xmm4","xmm5","xmm6","xmm7","xmm8","xmm9","xmm10","xmm11","xmm12","xmm13","xmm14","xmm15","xmm16","xmm17","xmm18","xmm19","xmm20","xmm21","xmm22","xmm23","xmm24","xmm25","xmm26","xmm27","xmm28","xmm29","xmm30","xmm31");
+#elif __AVX__
+  __asm__ __volatile__("movq %0, %%r8\n\t"
+                       "movq %1, %%r9\n\t"
+                       "1:\n\t"
+                       "subq $512, %%r9\n\t"
+                       "vmovupd    0(%%r8),   %%ymm0\n\t"
+                       "vmovupd   32(%%r8),   %%ymm1\n\t"
+                       "vmovupd   64(%%r8),   %%ymm2\n\t"
+                       "vmovupd   96(%%r8),   %%ymm3\n\t"
+                       "vmovupd  128(%%r8),   %%ymm4\n\t"
+                       "vmovupd  160(%%r8),   %%ymm5\n\t"
+                       "vmovupd  192(%%r8),   %%ymm6\n\t"
+                       "vmovupd  224(%%r8),   %%ymm7\n\t"
+                       "vmovupd  256(%%r8),   %%ymm8\n\t"
+                       "vmovupd  288(%%r8),   %%ymm9\n\t"
+                       "vmovupd  320(%%r8),  %%ymm10\n\t"
+                       "vmovupd  352(%%r8),  %%ymm11\n\t"
+                       "vmovupd  384(%%r8),  %%ymm12\n\t"
+                       "vmovupd  416(%%r8),  %%ymm13\n\t"
+                       "vmovupd  448(%%r8),  %%ymm14\n\t"
+                       "vmovupd  480(%%r8),  %%ymm15\n\t"
+                       "addq $512, %%r8\n\t"
+                       "cmpq $0, %%r9\n\t"
+                       "jg 1b\n\t"
+                       : : "m"(i_buffer), "r"(i_length) : "r8","r9","xmm0","xmm1","xmm2","xmm3","xmm4","xmm5","xmm6","xmm7","xmm8","xmm9","xmm10","xmm11","xmm12","xmm13","xmm14","xmm15");
+#elif __SSE2__
+  __asm__ __volatile__("movq %0, %%r8\n\t"
+                       "movq %1, %%r9\n\t"
+                       "1:\n\t"
+                       "subq $256, %%r9\n\t"
+                       "movapd    0(%%r8),   %%xmm0\n\t"
+                       "movapd   16(%%r8),   %%xmm1\n\t"
+                       "movapd   32(%%r8),   %%xmm2\n\t"
+                       "movapd   48(%%r8),   %%xmm3\n\t"
+                       "movapd   64(%%r8),   %%xmm4\n\t"
+                       "movapd   80(%%r8),   %%xmm5\n\t"
+                       "movapd   96(%%r8),   %%xmm6\n\t"
+                       "movapd  112(%%r8),   %%xmm7\n\t"
+                       "movapd  128(%%r8),   %%xmm8\n\t"
+                       "movapd  144(%%r8),   %%xmm9\n\t"
+                       "movapd  160(%%r8),  %%xmm10\n\t"
+                       "movapd  176(%%r8),  %%xmm11\n\t"
+                       "movapd  192(%%r8),  %%xmm12\n\t"
+                       "movapd  208(%%r8),  %%xmm13\n\t"
+                       "movapd  224(%%r8),  %%xmm14\n\t"
+                       "movapd  240(%%r8),  %%xmm15\n\t"
+                       "addq $256, %%r8\n\t"
+                       "cmpq $0, %%r9\n\t"
+                       "jg 1b\n\t"
+                       : : "m"(i_buffer), "r"(i_length) : "r8","r9","xmm0","xmm1","xmm2","xmm3","xmm4","xmm5","xmm6","xmm7","xmm8","xmm9","xmm10","xmm11","xmm12","xmm13","xmm14","xmm15");
+#else
+#error need at least SSE2
+#endif
+} 
+
+int main(int argc, char* argv[]) {
+  size_t l_n_bytes = 0;
+  size_t l_n_levels = 0;
+  size_t l_n_parts = 0;
+  size_t l_n_workers = 0;
+  size_t l_n_oiters = 0;
+  size_t l_n_iiters = 0;
+  char** l_n_buffers = 0;
+  struct timeval l_startTime, l_endTime;
+  double l_avgtime;
+  double l_totalGiB;
+  size_t i, j, k;
+
+#if defined(USE_CORE_PERF_L2IN) || defined(USE_CORE_PERF_SNP) || defined(USE_CORE_PERF_IPC)
+  ctrs_core cc_a, cc_b, cc_s;
+  zero_core_ctrs( &cc_a );
+  zero_core_ctrs( &cc_b );
+  zero_core_ctrs( &cc_s );
+
+#if defined(USE_CORE_PERF_L2IN)
+  setup_core_ctrs(CTRS_EXP_L2_BW);
+#endif
+#if defined(USE_CORE_PERF_SNP)
+  setup_core_ctrs(CTRS_EXP_CORE_SNP_RSP);
+#endif
+#if defined(USE_CORE_PERF_IPC)
+  setup_core_ctrs(CTRS_EXP_IPC);
+#endif
+#endif
+#if defined(USE_UNCORE_PERF_DRAM_BW) || defined(USE_UNCORE_PERF_LLC_VICTIMS) || defined(USE_UNCORE_PERF_CHA_UTIL) || defined(USE_UNCORE_PREF_AK_UTIL) || defined(USE_UNCORE_PREF_IV_UTIL)
+  ctrs_uncore uc_a, uc_b, uc_s;
+  zero_uncore_ctrs( &uc_a );
+  zero_uncore_ctrs( &uc_b );
+  zero_uncore_ctrs( &uc_s );
+
+#if defined(USE_UNCORE_PERF_DRAM_BW)
+  setup_uncore_ctrs( CTRS_EXP_DRAM_CAS );
+#endif
+#if defined(USE_UNCORE_PERF_LLC_VICTIMS)
+  setup_uncore_ctrs( CTRS_EXP_CHA_LLC_LOOKUP_VICTIMS );
+#endif
+#if defined(USE_UNCORE_PERF_CHA_UTIL)
+  setup_uncore_ctrs( CTRS_EXP_CHA_UTIL );
+#endif
+#if defined(USE_UNCORE_PREF_AK_UTIL)
+  setup_uncore_ctrs( CTRS_EXP_CMS_AK );
+#endif
+#if defined(USE_UNCORE_PREF_IV_UTIL)
+  setup_uncore_ctrs( CTRS_EXP_CMS_IV );
+#endif
+#endif
+
+  if ( argc != 7 ) {
+    printf("Wrong parameters: ./app [# of 2K blocks] [#levels] [#partitions] [#workers] [#outer iterations] [#inner iterations]\n");
+    return -1;
+  }
+
+  /* reading values from the command line */
+  l_n_bytes = atoi(argv[1])*2048;
+  l_n_levels = atoi(argv[2]);
+  l_n_parts = atoi(argv[3]);
+  l_n_workers = atoi(argv[4]);
+  l_n_oiters = atoi(argv[5]);
+  l_n_iiters = atoi(argv[6]);
+
+  /* validate the inputs */
+  if ( (l_n_levels < 1) || (l_n_oiters < 1) || (l_n_iiters < 1) ) {
+    printf("levels and iterations count needs to be non-zero and positive\n");
+    return -1;
+  }
+  if ( ((l_n_bytes / l_n_parts) % 2048) != 0 ) {
+    printf("each partition needs to be at least 2KB and the size of each partition needs to be a multipe of 2KB. ABORT!\n");
+    return -1;
+  }
+  if ( (l_n_parts < 1) || ((l_n_workers % l_n_parts) != 0) ) {
+    printf("paritions need to evenly divide workers. ABORT!\n");
+    return -1;
+  }
+
+#ifdef __AVX512F__
+  printf("using AVX512F\n");
+#elif __AVX__
+  printf("using AVX\n");
+#elif __SSE2__
+  printf("using SSE2\n");
+#else
+#error need at least SSE2
+#endif
+
+  /* allocating data */
+  l_n_buffers = (char**) malloc( l_n_levels*sizeof(char**) );
+  for ( i = 0; i < l_n_levels; ++i ) {
+    posix_memalign( (void**)&(l_n_buffers[i]), 4096, l_n_bytes*sizeof(char) );
+    memset( l_n_buffers[i], (int)i, l_n_bytes );
+  }
+  l_totalGiB = ((double)(l_n_bytes * l_n_levels * l_n_iiters))/(1024.0*1024.0*1024);
+
+  /* warming up */
+#if defined(_OPENMP)
+# pragma omp parallel private(i,j,k) num_threads(l_n_workers)
+#endif
+  {
+#if defined(_OPENMP)
+    const int tid = omp_get_thread_num();
+#else
+    const int tid = 0;
+#endif
+    for ( i = 0; i < 5; ++i ) {
+      for ( j = 0; j < l_n_levels; ++j ) {
+        for ( k = 0; k < l_n_iiters; ++k ) {
+          char* my_buffer = l_n_buffers[j];
+          size_t my_size = l_n_bytes / l_n_parts;
+          size_t my_offset = (size_t)tid / ( l_n_workers / l_n_parts );
+
+          read_buffer( my_buffer + (my_offset * my_size), my_size );
+        }
+      }
+    }
+  }
+
+  /* run the benchmark */
+#if defined(USE_CORE_PERF_SNP) || defined(USE_CORE_PERF_L2IN) || defined(USE_CORE_PERF_IPC)
+  read_core_ctrs( &cc_a );
+#endif
+#if defined(USE_UNCORE_PERF_DRAM_BW) || defined(USE_UNCORE_PERF_LLC_VICTIMS) || defined(USE_UNCORE_PERF_CHA_UTIL) || defined(USE_UNCORE_PREF_AK_UTIL) || defined(USE_UNCORE_PREF_IV_UTIL)
+  read_uncore_ctrs( &uc_a );
+#endif
+  gettimeofday(&l_startTime, NULL);
+#if defined(_OPENMP)
+# pragma omp parallel private(i,j,k) num_threads(l_n_workers)
+#endif
+  {
+#if defined(_OPENMP)
+    const int tid = omp_get_thread_num();
+#else
+    const int tid = 0;
+#endif
+    for ( i = 0; i < l_n_oiters; ++i ) {
+      for ( j = 0; j < l_n_levels; ++j ) {
+        for ( k = 0; k < l_n_iiters; ++k ) {
+          char* my_buffer = l_n_buffers[j];
+          size_t my_size = l_n_bytes / l_n_parts;
+          size_t my_offset = (size_t)tid / ( l_n_workers / l_n_parts );
+
+          read_buffer( my_buffer + (my_offset * my_size), my_size );
+        }
+      }
+    }
+  }
+  gettimeofday(&l_endTime, NULL);
+#if defined(USE_CORE_PERF_SNP) || defined(USE_CORE_PERF_L2IN) || defined(USE_CORE_PERF_IPC)
+  read_core_ctrs( &cc_b );
+  difa_core_ctrs( &cc_a, &cc_b, &cc_s );
+  divi_core_ctrs( &cc_s, iters );
+#endif
+#if defined(USE_UNCORE_PERF_DRAM_BW) || defined(USE_UNCORE_PERF_LLC_VICTIMS) || defined(USE_UNCORE_PERF_CHA_UTIL) || defined(USE_UNCORE_PREF_AK_UTIL) || defined(USE_UNCORE_PREF_IV_UTIL)
+  read_uncore_ctrs( &uc_b );
+  difa_uncore_ctrs( &uc_a, &uc_b, &uc_s );
+  divi_uncore_ctrs( &uc_s, iters );
+#endif
+  l_avgtime = sec(l_startTime, l_endTime)/((double)(l_n_oiters));
+  printf("Iteration Volume in GiB (levels * bytes * inner iterations): %f\n", l_totalGiB );
+  printf("Iteration Time in seconds                                  : %f\n", l_avgtime );
+  printf("Iteration Bandwidth in GiB/s                               : %f\n", l_totalGiB / l_avgtime ); 
+
+#if defined(USE_CORE_PERF_L2IN)
+  {
+    bw_gibs bw_avg;
+    get_l2_bw_core_ctrs( &cc_s, l_avgtime, &bw_avg );
+    printf("AVG GiB/s (IN    L2): %f\n", bw_avg.rd);
+    printf("AVG GiB/s (OUTS  L2): %f\n", bw_avg.wr);
+    printf("AVG GiB/s (OUTNS L2): %f\n", bw_avg.wr2);
+    printf("AVG GiB/s (DEM   L2): %f\n", bw_avg.wr3);
+    printf("AVG GiB/s (DROP  L2): %f\n", bw_avg.wr4);
+  }
+#endif
+#if defined(USE_CORE_PERF_SNP)
+  {
+    snp_rsp rsp;
+    get_snp_rsp_core_ctrs( &cc_s, &rsp );
+    printf("average #cycles per iteration : %f\n", rsp.cyc );
+    printf("SNOOP RESP IHITI              : %f\n", rsp.ihiti );
+    printf("SNOOP RESP IHITFSE            : %f\n", rsp.ihitfse );
+    printf("SNOOP RESP IFWDM              : %f\n", rsp.ifwdm );
+    printf("SNOOP RESP IFWDFE             : %f\n", rsp.ifwdfe );
+    printf("avg SNOOP RESP IHITI / cycle  : %f\n", rsp.ihiti/rsp.cyc );
+    printf("avg SNOOP RESP IHITFSE / cycle: %f\n", rsp.ihitfse/rsp.cyc );
+    printf("avg SNOOP RESP IFWDM / cycle  : %f\n", rsp.ifwdm/rsp.cyc );
+    printf("avg SNOOP RESP IFWDFE / cycle : %f\n", rsp.ifwdfe/rsp.cyc );
+  }
+#endif
+#if defined(USE_CORE_PERF_IPC)
+  {
+    ipc_rate ipc;
+    get_ipc_core_ctr( &cc_s, &ipc );
+    printf("average #cycles per iteration : %f\n", ipc.cyc );
+    printf("#intrs/core per iteration     : %f\n", ipc.instrs_core );
+    printf("total #instr per iteration    : %f\n", ipc.instrs );
+    printf("IPC per core                  : %f\n", ipc.ipc_core );
+    printf("IPC per SOC                   : %f\n", ipc.ipc );
+  }
+#endif
+#if defined(USE_UNCORE_PERF_DRAM_BW)
+  {
+    bw_gibs bw_avg;
+    get_cas_ddr_bw_uncore_ctrs( &uc_s, l_avgtime, &bw_avg );
+    printf("AVG GiB/s (IN  iMC): %f\n", bw_avg.rd);
+    printf("AVG GiB/s (OUT iMC): %f\n", bw_avg.wr);
+  }
+#endif
+#if defined(USE_UNCORE_PERF_LLC_VICTIMS)
+  {
+    llc_victims llc;
+    get_llc_victim_bw_uncore_ctrs( &uc_s, l_avgtime, &llc );
+    printf("LLC Lookup rd GiB/s : %f\n", llc.rd_bw );
+    printf("LLC Lookup wr GiB/s : %f\n", llc.wr_bw );
+    printf("LLC Victim E GiB/s  : %f\n", llc.bw_vic_e );
+    printf("LLC Victim F GiB/s  : %f\n", llc.bw_vic_f );
+    printf("LLC Victim M GiB/s  : %f\n", llc.bw_vic_m );
+    printf("LLC Victim S GiB/s  : %f\n", llc.bw_vic_s );
+    printf("LLC Victim E Count  : %f\n", llc.tot_vic_e );
+    printf("LLC Victim F Count  : %f\n", llc.tot_vic_f );
+    printf("LLC Victim M Count  : %f\n", llc.tot_vic_m );
+    printf("LLC Victim S Count  : %f\n", llc.tot_vic_s );
+  }
+#endif
+#if defined(USE_UNCORE_PERF_CHA_UTIL)
+  {
+    cha_util util;
+    get_cha_util_uncore_ctrs( &uc_s, &util );
+    printf("average #cycles per iteration : %f\n", util.cyc );
+    printf("#intrs/cha per iteration      : %f\n", util.instrs_cha );
+    printf("CHA Util                      : %f\n", util.util_cha );
+  }
+#endif
+#if defined(USE_UNCORE_PREF_AK_UTIL)
+  {
+    int cha = 0;
+    for ( cha = 0; cha < CTRS_NCHA; ++cha ) {
+      printf("CHA %i: CMS cyc: %lld, AK_VERT: %lld, AK_HORZ: %lld\n", cha, uc_s.cms_clockticks[cha], uc_s.vert_ak_ring_in_use[cha], uc_s.horz_ak_ring_in_use[cha] );
+    }
+  }
+#endif
+#if defined(USE_UNCORE_PREF_IV_UTIL)
+  {
+    int cha = 0;
+    for ( cha = 0; cha < CTRS_NCHA; ++cha ) {
+      printf("CHA %i: CMS cyc: %lld, IV_VERT: %lld, IV_HORZ: %lld\n", cha, uc_s.cms_clockticks[cha], uc_s.vert_iv_ring_in_use[cha], uc_s.horz_iv_ring_in_use[cha] );
+    }
+  }
+#endif
+#if defined(USE_CORE_PERF_L2IN) && defined(USE_UNCORE_PERF_DRAM_BW)
+  {
+    cache_miss_rate mrate;
+    get_l2_llc_misses_uncore_core_ctr( &cc_s, &uc_s, &mrate );
+    printf("average #cycles per iteration  : %f\n", mrate.cyc );
+    printf("average #instrs per iteration  : %f\n", mrate.instrs );
+    printf("acc. #L2 misses per iteration  : %f\n", mrate.llc_rd_acc );
+    printf("acc. #LLC misses per iteration : %f\n", mrate.dram_rd_acc );
+    printf("L2 Miss Rate                   : %f\n", mrate.l2_miss_rate );
+    printf("LLC Miss Rate                  : %f\n", mrate.llc_miss_rate );
+  }
+#endif
+  
+  /* free data */
+  for ( i = 0; i < l_n_levels; ++i ) {
+    free( l_n_buffers[i] );
+  }
+  free( l_n_buffers );
+
+  return 0; 
+}
