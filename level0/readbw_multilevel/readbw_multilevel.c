@@ -175,7 +175,7 @@ int main(int argc, char* argv[]) {
   char** l_n_buffers = 0;
   struct timeval l_startTime, l_endTime;
   double l_avgtime;
-  double l_totalGiB;
+  double l_totalGiB, l_totalGiB_dram;
   size_t i, j, k;
 
 #if defined(USE_CORE_PERF_L2IN) || defined(USE_CORE_PERF_SNP) || defined(USE_CORE_PERF_IPC)
@@ -260,7 +260,25 @@ int main(int argc, char* argv[]) {
     posix_memalign( (void**)&(l_n_buffers[i]), 4096, l_n_bytes*sizeof(char) );
     memset( l_n_buffers[i], (int)i, l_n_bytes );
   }
-  l_totalGiB = ((double)(l_n_bytes * l_n_levels * l_n_iiters))/(1024.0*1024.0*1024);
+  l_totalGiB = ((double)(l_n_bytes * l_n_levels * l_n_iiters * (l_n_workers / l_n_parts)))/(1024.0*1024.0*1024);
+  l_totalGiB_dram = ((double)(l_n_bytes * l_n_levels))/(1024.0*1024.0*1024);
+
+  printf("#Levels                            : %lld\n", l_n_levels );
+  printf("#iterations per level              : %lld\n", l_n_iiters );
+  printf("Buffer Size in GiB per level       : %f\n", (double)l_n_bytes/(1024.0*1024.0*1024.0));
+  printf("Buffer Size in bytes per lelvel    : %lld\n", l_n_bytes );
+  printf("#workers ussed                     : %lld\n", l_n_workers );
+  printf("#partition used                    : %lld\n", l_n_parts );
+  printf("each worker reads #bytes           : %lld\n", (l_n_bytes / l_n_parts) );
+  printf("each worker reads %% of buffer      : %f\n", (((double)(l_n_bytes / l_n_parts)) / ((double)l_n_bytes))*100.0 );
+  printf("access indecies per worker\n");
+  for ( i = 0; i < l_n_workers; ++i ) {
+    size_t my_size = l_n_bytes / l_n_parts;
+    size_t my_offset = (size_t)i / ( l_n_workers / l_n_parts );
+    printf("  worker %.3i                       : [ %lld , %lld [ ; length = %lld\n", i, my_offset * my_size, (my_offset * my_size) + my_size, my_size );
+  }
+  printf("Iteration Volume in GiB form LLC   : %f\n", l_totalGiB );
+  printf("Iteration Volume in GiB from DRAM  : %f\n", l_totalGiB_dram );
 
   /* warming up */
 #if defined(_OPENMP)
@@ -326,9 +344,9 @@ int main(int argc, char* argv[]) {
   divi_uncore_ctrs( &uc_s, l_n_oiters );
 #endif
   l_avgtime = sec(l_startTime, l_endTime)/((double)(l_n_oiters));
-  printf("Iteration Volume in GiB (levels * bytes * inner iterations): %f\n", l_totalGiB );
-  printf("Iteration Time in seconds                                  : %f\n", l_avgtime );
-  printf("Iteration Bandwidth in GiB/s                               : %f\n", l_totalGiB / l_avgtime ); 
+  printf("Iteration Time in seconds          : %f\n", l_avgtime );
+  printf("Iteration L2in Bandwidth in GiB/s  : %f\n", l_totalGiB / l_avgtime ); 
+  printf("Iteration DRAM Bandwidth in GiB/s  : %f\n", l_totalGiB_dram / l_avgtime ); 
 
 #if defined(USE_CORE_PERF_L2IN)
   {
