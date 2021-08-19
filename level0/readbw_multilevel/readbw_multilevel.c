@@ -266,12 +266,12 @@ int main(int argc, char* argv[]) {
   printf("#Levels                            : %lld\n", l_n_levels );
   printf("#iterations per level              : %lld\n", l_n_iiters );
   printf("Buffer Size in GiB per level       : %f\n", (double)l_n_bytes/(1024.0*1024.0*1024.0));
-  printf("Buffer Size in bytes per lelvel    : %lld\n", l_n_bytes );
-  printf("#workers ussed                     : %lld\n", l_n_workers );
+  printf("Buffer Size in bytes per level     : %lld\n", l_n_bytes );
+  printf("#workers used                      : %lld\n", l_n_workers );
   printf("#partition used                    : %lld\n", l_n_parts );
   printf("each worker reads #bytes           : %lld\n", (l_n_bytes / l_n_parts) );
   printf("each worker reads %% of buffer      : %f\n", (((double)(l_n_bytes / l_n_parts)) / ((double)l_n_bytes))*100.0 );
-  printf("access indecies per worker\n");
+  printf("access indices per worker\n");
   for ( i = 0; i < l_n_workers; ++i ) {
     size_t my_size = l_n_bytes / l_n_parts;
     size_t my_offset = (size_t)i / ( l_n_workers / l_n_parts );
