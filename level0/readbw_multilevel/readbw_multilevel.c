@@ -297,7 +297,7 @@ int main(int argc, char* argv[]) {
           size_t my_size = l_n_bytes / l_n_parts;
           size_t my_offset = (size_t)tid / ( l_n_workers / l_n_parts );
           size_t my_start = my_offset * my_size;
-#if 1
+#if 0
           size_t my_shr_deg = l_n_workers / l_n_parts;
           size_t my_kern_size = my_size / my_shr_deg;
           size_t my_tid = tid % my_shr_deg;
@@ -312,6 +312,9 @@ int main(int argc, char* argv[]) {
           read_buffer( my_buffer + my_start, my_size );
 #endif
         }
+#if defined(_OPENMP)
+# pragma omp barrier
+#endif
       }
     }
   }
@@ -340,7 +343,7 @@ int main(int argc, char* argv[]) {
           size_t my_size = l_n_bytes / l_n_parts;
           size_t my_offset = (size_t)tid / ( l_n_workers / l_n_parts );
           size_t my_start = my_offset * my_size;
-#if 1
+#if 0
           size_t my_shr_deg = l_n_workers / l_n_parts;
           size_t my_kern_size = my_size / my_shr_deg;
           size_t my_tid = tid % my_shr_deg;
@@ -355,6 +358,9 @@ int main(int argc, char* argv[]) {
           read_buffer( my_buffer + my_start, my_size );
 #endif
         }
+#if defined(_OPENMP)
+# pragma omp barrier
+#endif
       }
     }
   }
