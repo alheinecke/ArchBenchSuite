@@ -55,6 +55,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <float.h>
 #include <sys/time.h>
 #if defined(_OPENMP)
 #include <omp.h>
@@ -174,7 +175,11 @@ int main(int argc, char* argv[]) {
   size_t l_n_iiters = 0;
   char** l_n_buffers = 0;
   struct timeval l_startTime, l_endTime;
+  struct timeval *l_startTime_arr, *l_endTime_arr;
+  double *l_iterTimes;
   double l_avgtime;
+  double l_mintime;
+  double l_maxtime;
   double l_totalGiB, l_totalGiB_dram;
   size_t i, j, k;
 
@@ -260,26 +265,30 @@ int main(int argc, char* argv[]) {
     posix_memalign( (void**)&(l_n_buffers[i]), 4096, l_n_bytes*sizeof(char) );
     memset( l_n_buffers[i], (int)i, l_n_bytes );
   }
+  l_startTime_arr = (struct timeval*) malloc( l_n_oiters*sizeof(struct timeval) );
+  l_endTime_arr = (struct timeval*) malloc( l_n_oiters*sizeof(struct timeval) );
+  l_iterTimes = (double*) malloc( l_n_oiters*sizeof(double) );
   l_totalGiB = ((double)(l_n_bytes * l_n_levels * l_n_iiters * (l_n_workers / l_n_parts)))/(1024.0*1024.0*1024);
   l_totalGiB_dram = ((double)(l_n_bytes * l_n_levels))/(1024.0*1024.0*1024);
 
-  printf("#Levels                            : %lld\n", l_n_levels );
-  printf("#iterations per level              : %lld\n", l_n_iiters );
-  printf("Buffer Size in GiB per level       : %f\n", (double)l_n_bytes/(1024.0*1024.0*1024.0));
-  printf("Buffer Size in bytes per level     : %lld\n", l_n_bytes );
-  printf("#workers used                      : %lld\n", l_n_workers );
-  printf("#partition used                    : %lld\n", l_n_parts );
-  printf("each worker reads #bytes           : %lld\n", (l_n_bytes / l_n_parts) );
-  printf("each worker reads %% of buffer      : %f\n", (((double)(l_n_bytes / l_n_parts)) / ((double)l_n_bytes))*100.0 );
+  printf("#Levels                                 : %lld\n", l_n_levels );
+  printf("#iterations per level                   : %lld\n", l_n_iiters );
+  printf("Buffer Size in GiB per level            : %f\n", (double)l_n_bytes/(1024.0*1024.0*1024.0));
+  printf("Buffer Size in bytes per level          : %lld\n", l_n_bytes );
+  printf("#workers used                           : %lld\n", l_n_workers );
+  printf("#partition used                         : %lld\n", l_n_parts );
+  printf("each worker reads #bytes                : %lld\n", (l_n_bytes / l_n_parts) );
+  printf("each worker reads %% of buffer           : %f\n", (((double)(l_n_bytes / l_n_parts)) / ((double)l_n_bytes))*100.0 );
   printf("access indices per worker\n");
   for ( i = 0; i < l_n_workers; ++i ) {
     size_t my_size = l_n_bytes / l_n_parts;
     size_t my_offset = (size_t)i / ( l_n_workers / l_n_parts );
-    printf("  worker %.3i                       : [ %lld , %lld [ ; length = %lld\n", i, my_offset * my_size, (my_offset * my_size) + my_size, my_size );
+    printf("  worker %.3i                             : [ %lld , %lld [ ; length = %lld\n", i, my_offset * my_size, (my_offset * my_size) + my_size, my_size );
   }
-  printf("Iteration Volume in GiB form LLC   : %f\n", l_totalGiB );
-  printf("Iteration Volume in GiB from DRAM  : %f\n", l_totalGiB_dram );
+  printf("Iteration Volume in GiB form LLC        : %f\n", l_totalGiB );
+  printf("Iteration Volume in GiB from DRAM       : %f\n", l_totalGiB_dram );
 
+  printf("warming up...\n");
   /* warming up */
 #if defined(_OPENMP)
 # pragma omp parallel private(i,j,k) num_threads(l_n_workers)
@@ -290,7 +299,7 @@ int main(int argc, char* argv[]) {
 #else
     const int tid = 0;
 #endif
-    for ( i = 0; i < 5; ++i ) {
+    for ( i = 0; i < 20; ++i ) {
       for ( j = 0; j < l_n_levels; ++j ) {
         for ( k = 0; k < l_n_iiters; ++k ) {
           char* my_buffer = l_n_buffers[j];
@@ -318,6 +327,7 @@ int main(int argc, char* argv[]) {
       }
     }
   }
+  printf("... done! [0][0] = %i\n", l_n_buffers[0][0] );  
 
   /* run the benchmark */
 #if defined(USE_CORE_PERF_SNP) || defined(USE_CORE_PERF_L2IN) || defined(USE_CORE_PERF_IPC)
@@ -337,6 +347,7 @@ int main(int argc, char* argv[]) {
     const int tid = 0;
 #endif
     for ( i = 0; i < l_n_oiters; ++i ) {
+      if (tid == 0) gettimeofday(&(l_startTime_arr[i]), NULL);
       for ( j = 0; j < l_n_levels; ++j ) {
         for ( k = 0; k < l_n_iiters; ++k ) {
           char* my_buffer = l_n_buffers[j];
@@ -362,6 +373,7 @@ int main(int argc, char* argv[]) {
 # pragma omp barrier
 #endif
       }
+      if (tid == 0) gettimeofday(&(l_endTime_arr[i]), NULL);
     }
   }
   gettimeofday(&l_endTime, NULL);
@@ -375,10 +387,22 @@ int main(int argc, char* argv[]) {
   difa_uncore_ctrs( &uc_a, &uc_b, &uc_s );
   divi_uncore_ctrs( &uc_s, l_n_oiters );
 #endif
+  l_mintime = FLT_MAX;
+  l_maxtime = FLT_MIN;
+  for ( i = 0; i < l_n_oiters; ++i ) {
+    l_mintime = ( l_mintime > sec(l_startTime_arr[i], l_endTime_arr[i]) ) ? sec(l_startTime_arr[i], l_endTime_arr[i]) : l_mintime;
+    l_maxtime = ( l_maxtime < sec(l_startTime_arr[i], l_endTime_arr[i]) ) ? sec(l_startTime_arr[i], l_endTime_arr[i]) : l_maxtime;
+  }
   l_avgtime = sec(l_startTime, l_endTime)/((double)(l_n_oiters));
-  printf("Iteration Time in seconds          : %f\n", l_avgtime );
-  printf("Iteration L2in Bandwidth in GiB/s  : %f\n", l_totalGiB / l_avgtime ); 
-  printf("Iteration DRAM Bandwidth in GiB/s  : %f\n", l_totalGiB_dram / l_avgtime ); 
+  printf("avg. Iteration Time in seconds          : %f\n", l_avgtime );
+  printf("avg. Iteration L2in Bandwidth in GiB/s  : %f\n", l_totalGiB / l_avgtime ); 
+  printf("avg. Iteration DRAM Bandwidth in GiB/s  : %f\n", l_totalGiB_dram / l_avgtime ); 
+  printf("min. Iteration Time in seconds          : %f\n", l_mintime );
+  printf("max. Iteration L2in Bandwidth in GiB/s  : %f\n", l_totalGiB / l_mintime ); 
+  printf("max. Iteration DRAM Bandwidth in GiB/s  : %f\n", l_totalGiB_dram / l_mintime ); 
+  printf("max. Iteration Time in seconds          : %f\n", l_maxtime );
+  printf("min. Iteration L2in Bandwidth in GiB/s  : %f\n", l_totalGiB / l_maxtime ); 
+  printf("min. Iteration DRAM Bandwidth in GiB/s  : %f\n", l_totalGiB_dram / l_maxtime ); 
 
 #if defined(USE_CORE_PERF_L2IN)
   {
@@ -484,6 +508,9 @@ int main(int argc, char* argv[]) {
     free( l_n_buffers[i] );
   }
   free( l_n_buffers );
+  free( l_startTime_arr );
+  free( l_endTime_arr );
+  free( l_iterTimes );
 
   return 0; 
 }
