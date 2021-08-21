@@ -228,7 +228,7 @@ int main(int argc, char* argv[]) {
   }
 
   /* reading values from the command line */
-  l_n_bytes = atoi(argv[1])*2048;
+  l_n_bytes = ((size_t)atoi(argv[1]))*2048;
   l_n_levels = atoi(argv[2]);
   l_n_parts = atoi(argv[3]);
   l_n_workers = atoi(argv[4]);
