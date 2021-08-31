@@ -28,13 +28,20 @@
 #############################################################################
 
 CC=gcc
-CFLAGS=-O3 -msse4.2
+CXX=g++
+CFLAGS=-O3 -msse3
 LDFLAGS=-lcublas -lcudart
 
-default : mlp_example_f32
+default : mlp_example_f32 mlp_example_f16 mlp_example_bf16
 
 mlp_example_f32 : mlp_example_f32.c
 	$(CC) $(CFLAGS) $(LDFLAGS) -o mlp_example_f32 mlp_example_f32.c
-	
+
+mlp_example_f16 : mlp_example_f16.cpp
+	$(CXX) $(CFLAGS) $(LDFLAGS) -o mlp_example_f16 mlp_example_f16.cpp
+		
+mlp_example_bf16 : mlp_example_bf16.cpp
+	$(CXX) $(CFLAGS) $(LDFLAGS) -o mlp_example_bf16 mlp_example_bf16.cpp
+
 clean :
-	rm -rdfv *.o mlp_example_f32
+	rm -rdfv *.o mlp_example_f32 mlp_example_f16
