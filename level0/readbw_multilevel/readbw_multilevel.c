@@ -553,7 +553,8 @@ int main(int argc, char* argv[]) {
   {
     size_t* l_tsc_timer;
     size_t l_iter_to_analyze = 130;
-    size_t l_level_to_analyze = 50;
+    size_t l_level_to_analyze = 250;
+    volatile size_t l_counter = 0;
     if ( l_iter_to_analyze >= l_n_oiters ) {
       printf(" iter to analyze is out of bounds!\n ");
       return -1;
@@ -601,14 +602,18 @@ int main(int argc, char* argv[]) {
           l_tsc_timer[(tid*l_n_levels*l_n_oiters*6) + (j*l_n_oiters*6) + (i*6) + 0] = __rdtsc(); 
           read_buffer( my_buffer + my_start + ( ( (0+my_tid) % my_shr_deg ) * my_kern_size), my_kern_size );
           l_tsc_timer[(tid*l_n_levels*l_n_oiters*6) + (j*l_n_oiters*6) + (i*6) + 1] = __rdtsc();
+          //if (tid == 0) l_counter = 0;
 #if defined(_OPENMP)
 # pragma omp barrier
 #endif
+          //while ( l_counter != (tid % l_n_parts) ) {
+          //}
           if ( my_shr_deg > 1 ) {
             l_tsc_timer[(tid*l_n_levels*l_n_oiters*6) + (j*l_n_oiters*6) + (i*6) + 2] = __rdtsc(); 
             read_buffer( my_buffer + my_start + ( ( (1+my_tid) % my_shr_deg ) * my_kern_size), my_kern_size );
             l_tsc_timer[(tid*l_n_levels*l_n_oiters*6) + (j*l_n_oiters*6) + (i*6) + 3] = __rdtsc(); 
           }
+          //if ( tid < l_n_parts ) l_counter++;
 #if defined(_OPENMP)
 # pragma omp barrier
 #endif
@@ -632,7 +637,6 @@ int main(int argc, char* argv[]) {
       size_t l_avg_cycles = 0;
       size_t l_min_cycles = 0xffffffffffffffff;
       size_t l_max_cycles = 0;
-      size_t l_iter_to_analyze = 100;
       size_t my_size = l_n_bytes / l_n_parts;
       size_t my_shr_deg = l_n_workers / l_n_parts;
       size_t my_kern_size = my_size / my_shr_deg;
