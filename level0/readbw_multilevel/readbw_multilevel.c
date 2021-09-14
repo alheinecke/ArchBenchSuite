@@ -574,6 +574,9 @@ int main(int argc, char* argv[]) {
         char my_wiper_start = tid * my_wiper_size;
         read_buffer( l_cache_wiper + my_wiper_start, my_wiper_size );
         clflush_buffer( l_cache_wiper + my_wiper_start, my_wiper_size );
+#if defined(_OPENMP)
+# pragma omp barrier
+#endif
         for ( k = 0; k < l_n_iiters; ++k ) {
           char* my_buffer = l_n_buffers[j];
           size_t my_size = l_n_bytes / l_n_parts;
