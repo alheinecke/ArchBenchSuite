@@ -61,6 +61,8 @@
 #include <omp.h>
 #endif
 
+#define MY_MIN(A,B) (((A)<(B))?(A):(B))
+
 #if defined(USE_CORE_PERF_SNP) || defined(USE_CORE_PERF_L2IN) || defined(USE_CORE_PERF_IPC) || defined(USE_UNCORE_PERF_DRAM_BW) || defined(USE_UNCORE_PERF_LLC_VICTIMS) || defined(USE_UNCORE_PERF_CHA_UTIL) || defined(USE_UNCORE_PREF_AK_UTIL) || defined(USE_UNCORE_PREF_IV_UTIL)
 #  include "../common/perf_counter_markers.h"
 #endif
@@ -306,7 +308,7 @@ int main(int argc, char* argv[]) {
           size_t my_size = l_n_bytes / l_n_parts;
           size_t my_offset = (size_t)tid / ( l_n_workers / l_n_parts );
           size_t my_start = my_offset * my_size;
-#if 0
+#if 1
           size_t my_shr_deg = l_n_workers / l_n_parts;
           size_t my_kern_size = my_size / my_shr_deg;
           size_t my_tid = tid % my_shr_deg;
@@ -354,7 +356,7 @@ int main(int argc, char* argv[]) {
           size_t my_size = l_n_bytes / l_n_parts;
           size_t my_offset = (size_t)tid / ( l_n_workers / l_n_parts );
           size_t my_start = my_offset * my_size;
-#if 0
+#if 1
           size_t my_shr_deg = l_n_workers / l_n_parts;
           size_t my_kern_size = my_size / my_shr_deg;
           size_t my_tid = tid % my_shr_deg;
@@ -502,7 +504,141 @@ int main(int argc, char* argv[]) {
     printf("LLC Miss Rate                  : %f\n", mrate.llc_miss_rate );
   }
 #endif
-  
+
+
+  printf("\nRunning detailed timing for round-robin read ...\n");
+  {
+    size_t* l_tsc_timer; 
+    /* allocatopm pf timer arrary */
+    l_tsc_timer = (size_t*) malloc( l_n_workers*l_n_levels*l_n_oiters*6*sizeof(size_t) );
+    memset( (void*)l_tsc_timer, 0, l_n_workers*l_n_levels*l_n_oiters*6*sizeof(size_t) );
+#if defined(_OPENMP)
+# pragma omp parallel private(i,j,k) num_threads(l_n_workers)
+#endif
+  {
+#if defined(_OPENMP)
+    const int tid = omp_get_thread_num();
+#else
+    const int tid = 0;
+#endif
+    for ( i = 0; i < l_n_oiters; ++i ) {
+      for ( j = 0; j < l_n_levels; ++j ) {
+        for ( k = 0; k < l_n_iiters; ++k ) {
+          char* my_buffer = l_n_buffers[j];
+          size_t my_size = l_n_bytes / l_n_parts;
+          size_t my_offset = (size_t)tid / ( l_n_workers / l_n_parts );
+          size_t my_start = my_offset * my_size;
+          size_t my_shr_deg = l_n_workers / l_n_parts;
+          size_t my_kern_size = my_size / my_shr_deg;
+          size_t my_tid = tid % my_shr_deg;
+          size_t l;
+          l_tsc_timer[(tid*l_n_levels*l_n_oiters*6) + (j*l_n_oiters*6) + (i*6) + 0] = __rdtsc(); 
+          read_buffer( my_buffer + my_start + ( ( (0+my_tid) % my_shr_deg ) * my_kern_size), my_kern_size );
+          l_tsc_timer[(tid*l_n_levels*l_n_oiters*6) + (j*l_n_oiters*6) + (i*6) + 1] = __rdtsc();
+#if defined(_OPENMP)
+# pragma omp barrier
+#endif
+          if ( my_shr_deg > 1 ) {
+            l_tsc_timer[(tid*l_n_levels*l_n_oiters*6) + (j*l_n_oiters*6) + (i*6) + 2] = __rdtsc(); 
+            read_buffer( my_buffer + my_start + ( ( (1+my_tid) % my_shr_deg ) * my_kern_size), my_kern_size );
+            l_tsc_timer[(tid*l_n_levels*l_n_oiters*6) + (j*l_n_oiters*6) + (i*6) + 3] = __rdtsc(); 
+          }
+#if defined(_OPENMP)
+# pragma omp barrier
+#endif
+          l_tsc_timer[(tid*l_n_levels*l_n_oiters*6) + (j*l_n_oiters*6) + (i*6) + 4] = __rdtsc(); 
+          for ( l = 2; l < my_shr_deg; ++l ) {
+            read_buffer( my_buffer + my_start + ( ( (l+my_tid) % my_shr_deg ) * my_kern_size), my_kern_size );
+          }
+          l_tsc_timer[(tid*l_n_levels*l_n_oiters*6) + (j*l_n_oiters*6) + (i*6) + 5] = __rdtsc(); 
+        }
+#if defined(_OPENMP)
+# pragma omp barrier
+#endif
+      }
+    }
+  }
+    /* let's print the stats */
+    {
+      size_t l_tot_avg_cycles = 0;
+      size_t l_tot_min_cycles = 0;
+      size_t l_tot_max_cycles = 0;
+      size_t l_avg_cycles = 0;
+      size_t l_min_cycles = 0xffffffffffffffff;
+      size_t l_max_cycles = 0;
+      size_t l_iter_to_analyze = 100;
+      size_t my_size = l_n_bytes / l_n_parts;
+      size_t my_shr_deg = l_n_workers / l_n_parts;
+      size_t my_kern_size = my_size / my_shr_deg;
+      size_t tid;
+      j = 55;
+      i = 100;
+          
+      printf("\nLayer %lld and iteration %lld\n", j, i);
+      printf("\nPhase I Perf - reading in data\n");
+      printf("  per core:\n"); 
+      for ( tid = 0; tid < l_n_workers; ++tid ) {
+        size_t l_cycles = l_tsc_timer[(tid*l_n_levels*l_n_oiters*6) + (j*l_n_oiters*6) + (i*6) + 1] - l_tsc_timer[(tid*l_n_levels*l_n_oiters*6) + (j*l_n_oiters*6) + (i*6) + 0];
+        l_avg_cycles += l_cycles;
+        l_min_cycles = (l_cycles < l_min_cycles) ? l_cycles : l_min_cycles; 
+        l_max_cycles = (l_cycles > l_max_cycles) ? l_cycles : l_max_cycles;
+        printf("     worker %.3i: %f B/c (%lld, %lld, %lld, %lld) \n", tid, (double)my_kern_size/(double)l_cycles, my_kern_size, l_tsc_timer[(tid*l_n_levels*l_n_oiters*6) + (j*l_n_oiters*6) + (i*6) + 0],  l_tsc_timer[(tid*l_n_levels*l_n_oiters*6) + (j*l_n_oiters*6) + (i*6) + 1], l_cycles );
+      }
+      l_avg_cycles /= l_n_workers;
+      printf("  avg: %f, min: %f, max: %f B/c\n", (double)my_kern_size/(double)l_avg_cycles, (double)my_kern_size/(double)l_max_cycles, (double)my_kern_size/(double)l_min_cycles );
+
+      l_tot_avg_cycles += l_avg_cycles;
+      l_tot_min_cycles += l_min_cycles;
+      l_tot_max_cycles += l_max_cycles;
+
+      if ( my_shr_deg > 1 ) {
+        l_avg_cycles = 0;
+        l_min_cycles = 0xffffffffffffffff;
+        l_max_cycles = 0;
+        printf("\nPhase II Perf - making data shared\n");
+        printf("  per core:\n"); 
+        for ( tid = 0; tid < l_n_workers; ++tid ) {
+          size_t l_cycles = l_tsc_timer[(tid*l_n_levels*l_n_oiters*6) + (j*l_n_oiters*6) + (i*6) + 3] - l_tsc_timer[(tid*l_n_levels*l_n_oiters*6) + (j*l_n_oiters*6) + (i*6) + 2];
+          l_avg_cycles += l_cycles;
+          l_min_cycles = (l_cycles < l_min_cycles) ? l_cycles : l_min_cycles; 
+          l_max_cycles = (l_cycles > l_max_cycles) ? l_cycles : l_max_cycles;
+          printf("     worker %.3i: %f B/c (%lld, %lld, %lld, %lld) \n", tid, (double)my_kern_size/(double)l_cycles, my_kern_size, l_tsc_timer[(tid*l_n_levels*l_n_oiters*6) + (j*l_n_oiters*6) + (i*6) + 0],  l_tsc_timer[(tid*l_n_levels*l_n_oiters*6) + (j*l_n_oiters*6) + (i*6) + 1], l_cycles );
+        }
+        l_avg_cycles /= l_n_workers;
+        printf("  avg: %f, min: %f, max: %f B/c\n", (double)my_kern_size/(double)l_avg_cycles, (double)my_kern_size/(double)l_max_cycles, (double)my_kern_size/(double)l_min_cycles );
+
+        l_tot_avg_cycles += l_avg_cycles;
+        l_tot_min_cycles += l_min_cycles;
+        l_tot_max_cycles += l_max_cycles;
+      } 
+      
+      if ( my_shr_deg > 2 ) {
+        l_avg_cycles = 0;
+        l_min_cycles = 0xffffffffffffffff;
+        l_max_cycles = 0;
+        printf("\nPhase III Perf - reading shared data\n");
+        printf("  per core:\n");
+        size_t shared_size = my_size - (2*my_kern_size);
+        for ( tid = 0; tid < l_n_workers; ++tid ) {
+          size_t l_cycles = l_tsc_timer[(tid*l_n_levels*l_n_oiters*6) + (j*l_n_oiters*6) + (i*6) + 5] - l_tsc_timer[(tid*l_n_levels*l_n_oiters*6) + (j*l_n_oiters*6) + (i*6) + 4];
+          l_avg_cycles += l_cycles;
+          l_min_cycles = (l_cycles < l_min_cycles) ? l_cycles : l_min_cycles; 
+          l_max_cycles = (l_cycles > l_max_cycles) ? l_cycles : l_max_cycles;
+          printf("     worker %.3i: %f B/c (%lld, %lld, %lld, %lld) \n", tid, (double)shared_size/(double)l_cycles, shared_size, l_tsc_timer[(tid*l_n_levels*l_n_oiters*6) + (j*l_n_oiters*6) + (i*6) + 0],  l_tsc_timer[(tid*l_n_levels*l_n_oiters*6) + (j*l_n_oiters*6) + (i*6) + 1], l_cycles );
+        }
+        l_avg_cycles /= l_n_workers;
+        printf("  avg: %f, min: %f, max: %f B/c\n", (double)shared_size/(double)l_avg_cycles, (double)shared_size/(double)l_max_cycles, (double)shared_size/(double)l_min_cycles );
+
+        l_tot_avg_cycles += l_avg_cycles;
+        l_tot_min_cycles += l_min_cycles;
+        l_tot_max_cycles += l_max_cycles;
+      }
+
+      printf("\nTotal Perf - reading shared data\n");
+      printf("  avg: %f, min: %f, max: %f B/c\n", (double)my_size/(double)l_tot_avg_cycles, (double)my_size/(double)l_tot_max_cycles, (double)my_size/(double)l_tot_min_cycles );
+    }
+    free( l_tsc_timer );
+  }  
   /* free data */
   for ( i = 0; i < l_n_levels; ++i ) {
     free( l_n_buffers[i] );
