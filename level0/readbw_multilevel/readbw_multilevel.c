@@ -552,13 +552,19 @@ int main(int argc, char* argv[]) {
   printf("\nRunning detailed timing for round-robin read ...\n");
   {
     size_t* l_tsc_timer;
-    char* l_cache_wiper;
-    size_t l_cache_wiper_size = l_n_bytes*l_n_levels;  
+    size_t l_iter_to_analyze = 130;
+    size_t l_level_to_analyze = 50;
+    if ( l_iter_to_analyze >= l_n_oiters ) {
+      printf(" iter to analyze is out of bounds!\n ");
+      return -1;
+    }
+    if ( l_level_to_analyze >= l_n_levels ) {
+      printf(" iter to analyze is out of bounds!\n ");
+      return -1;
+    }
     /* allocatopm pf timer arrary */
     l_tsc_timer = (size_t*) malloc( l_n_workers*l_n_levels*l_n_oiters*6*sizeof(size_t) );
     memset( (void*)l_tsc_timer, 0, l_n_workers*l_n_levels*l_n_oiters*6*sizeof(size_t) );
-    posix_memalign( (void**)&(l_cache_wiper), 4096, l_cache_wiper_size*sizeof(char) );
-    memset( (void*)l_cache_wiper, 0, l_cache_wiper_size );
 #if defined(_OPENMP)
 # pragma omp parallel private(i,j,k) num_threads(l_n_workers)
 #endif
@@ -570,13 +576,19 @@ int main(int argc, char* argv[]) {
 #endif
     for ( i = 0; i < l_n_oiters; ++i ) {
       for ( j = 0; j < l_n_levels; ++j ) {
-        char my_wiper_size = l_cache_wiper_size / l_n_workers;
-        char my_wiper_start = tid * my_wiper_size;
-        read_buffer( l_cache_wiper + my_wiper_start, my_wiper_size );
-        clflush_buffer( l_cache_wiper + my_wiper_start, my_wiper_size );
+        if ( ( i == l_iter_to_analyze ) && ( j == l_level_to_analyze ) ) {
+          size_t t;
+          for ( t = 0; t < l_level_to_analyze; ++t ) {
+            char* my_wipe_buffer = l_n_buffers[t];
+            size_t my_wipe_size = l_n_bytes / l_n_parts;
+            size_t my_wipe_offset = (size_t)tid / ( l_n_workers / l_n_parts );
+            size_t my_wipe_start = my_wipe_offset * my_wipe_size;
+            clflush_buffer( my_wipe_buffer + my_wipe_start, my_wipe_size );
 #if defined(_OPENMP)
 # pragma omp barrier
 #endif
+          }
+        }
         for ( k = 0; k < l_n_iiters; ++k ) {
           char* my_buffer = l_n_buffers[j];
           size_t my_size = l_n_bytes / l_n_parts;
@@ -625,8 +637,8 @@ int main(int argc, char* argv[]) {
       size_t my_shr_deg = l_n_workers / l_n_parts;
       size_t my_kern_size = my_size / my_shr_deg;
       size_t tid;
-      j = 55;
-      i = 100;
+      j = l_level_to_analyze;
+      i = l_iter_to_analyze;
           
       printf("\nLayer %lld and iteration %lld\n", j, i);
       printf("\nPhase I Perf - reading in data\n");
@@ -692,7 +704,6 @@ int main(int argc, char* argv[]) {
       printf("  avg: %f, min: %f, max: %f B/c\n", (double)my_size/(double)l_tot_avg_cycles, (double)my_size/(double)l_tot_max_cycles, (double)my_size/(double)l_tot_min_cycles );
     }
     free( l_tsc_timer );
-    free( l_cache_wiper );
   }  
   /* free data */
   for ( i = 0; i < l_n_levels; ++i ) {
