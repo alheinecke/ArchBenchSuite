@@ -548,6 +548,19 @@ int main(int argc, char* argv[]) {
   }
 #endif
 
+#if 0
+#define FLUSH_CACHE_BEFORE
+#endif
+#if 0
+#define SEQ_LLC_ALLOC
+#endif
+#if 0
+#define GROUP_LLC_ALLOC
+#endif
+
+#if defined(SEQ_LLC_ALLOC) && defined(GROUP_LLC_ALLOC)
+#error SEQ_LLC_ALLOC and GROUP_LLC_ALLOC cannot be defined at the same time
+#endif
 
   printf("\nRunning detailed timing for round-robin read ...\n");
   {
@@ -577,6 +590,7 @@ int main(int argc, char* argv[]) {
 #endif
     for ( i = 0; i < l_n_oiters; ++i ) {
       for ( j = 0; j < l_n_levels; ++j ) {
+#ifdef FLUSH_CACHE_BEFORE
         if ( ( i == l_iter_to_analyze ) && ( j == l_level_to_analyze ) ) {
           size_t t;
           for ( t = 0; t < l_level_to_analyze; ++t ) {
@@ -590,6 +604,7 @@ int main(int argc, char* argv[]) {
 #endif
           }
         }
+#endif
         for ( k = 0; k < l_n_iiters; ++k ) {
           char* my_buffer = l_n_buffers[j];
           size_t my_size = l_n_bytes / l_n_parts;
@@ -602,18 +617,55 @@ int main(int argc, char* argv[]) {
           l_tsc_timer[(tid*l_n_levels*l_n_oiters*6) + (j*l_n_oiters*6) + (i*6) + 0] = __rdtsc(); 
           read_buffer( my_buffer + my_start + ( ( (0+my_tid) % my_shr_deg ) * my_kern_size), my_kern_size );
           l_tsc_timer[(tid*l_n_levels*l_n_oiters*6) + (j*l_n_oiters*6) + (i*6) + 1] = __rdtsc();
-          //if (tid == 0) l_counter = 0;
+#if defined(GROUP_LLC_ALLOC) || defined(SEQ_LLC_ALLOC)
+          if (tid == 0) l_counter = 0;
+#endif
 #if defined(_OPENMP)
 # pragma omp barrier
 #endif
-          //while ( l_counter != (tid % l_n_parts) ) {
-          //}
-          if ( my_shr_deg > 1 ) {
-            l_tsc_timer[(tid*l_n_levels*l_n_oiters*6) + (j*l_n_oiters*6) + (i*6) + 2] = __rdtsc(); 
-            read_buffer( my_buffer + my_start + ( ( (1+my_tid) % my_shr_deg ) * my_kern_size), my_kern_size );
-            l_tsc_timer[(tid*l_n_levels*l_n_oiters*6) + (j*l_n_oiters*6) + (i*6) + 3] = __rdtsc(); 
+#if defined(GROUP_LLC_ALLOC)
+          if ( ( i == l_iter_to_analyze ) && ( j == l_level_to_analyze ) ) {
+            while ( l_counter != (tid % l_n_parts) ) {
+            }
+            if ( my_shr_deg > 1 ) {
+              l_tsc_timer[(tid*l_n_levels*l_n_oiters*6) + (j*l_n_oiters*6) + (i*6) + 2] = __rdtsc(); 
+              read_buffer( my_buffer + my_start + ( ( (1+my_tid) % my_shr_deg ) * my_kern_size), my_kern_size );
+              l_tsc_timer[(tid*l_n_levels*l_n_oiters*6) + (j*l_n_oiters*6) + (i*6) + 3] = __rdtsc(); 
+            }
+            if ( tid < l_n_parts ) l_counter++;
+          } else {
+            if ( my_shr_deg > 1 ) {
+              l_tsc_timer[(tid*l_n_levels*l_n_oiters*6) + (j*l_n_oiters*6) + (i*6) + 2] = __rdtsc();
+              read_buffer( my_buffer + my_start + ( ( (1+my_tid) % my_shr_deg ) * my_kern_size), my_kern_size );
+              l_tsc_timer[(tid*l_n_levels*l_n_oiters*6) + (j*l_n_oiters*6) + (i*6) + 3] = __rdtsc();
+            }
           }
-          //if ( tid < l_n_parts ) l_counter++;
+#endif
+#if defined(SEQ_LLC_ALLOC)
+          if ( ( i == l_iter_to_analyze ) && ( j == l_level_to_analyze ) ) {
+            while ( l_counter < tid ) {
+            }
+            if ( my_shr_deg > 1 ) {
+              l_tsc_timer[(tid*l_n_levels*l_n_oiters*6) + (j*l_n_oiters*6) + (i*6) + 2] = __rdtsc(); 
+              read_buffer( my_buffer + my_start + ( ( (1+my_tid) % my_shr_deg ) * my_kern_size), my_kern_size );
+              l_tsc_timer[(tid*l_n_levels*l_n_oiters*6) + (j*l_n_oiters*6) + (i*6) + 3] = __rdtsc(); 
+            }
+            l_counter++;
+          } else {
+            if ( my_shr_deg > 1 ) {
+              l_tsc_timer[(tid*l_n_levels*l_n_oiters*6) + (j*l_n_oiters*6) + (i*6) + 2] = __rdtsc();
+              read_buffer( my_buffer + my_start + ( ( (1+my_tid) % my_shr_deg ) * my_kern_size), my_kern_size );
+              l_tsc_timer[(tid*l_n_levels*l_n_oiters*6) + (j*l_n_oiters*6) + (i*6) + 3] = __rdtsc();
+            }
+          }
+#endif
+#if !defined(GROUP_LLC_ALLOC) && !defined(SEQ_LLC_ALLOC)
+          if ( my_shr_deg > 1 ) {
+            l_tsc_timer[(tid*l_n_levels*l_n_oiters*6) + (j*l_n_oiters*6) + (i*6) + 2] = __rdtsc();
+            read_buffer( my_buffer + my_start + ( ( (1+my_tid) % my_shr_deg ) * my_kern_size), my_kern_size );
+            l_tsc_timer[(tid*l_n_levels*l_n_oiters*6) + (j*l_n_oiters*6) + (i*6) + 3] = __rdtsc();
+          }
+#endif
 #if defined(_OPENMP)
 # pragma omp barrier
 #endif
