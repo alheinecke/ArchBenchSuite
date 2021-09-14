@@ -168,6 +168,49 @@ void read_buffer( char* i_buffer, size_t i_length ) {
 #endif
 } 
 
+void clflush_buffer( char* i_buffer, size_t i_length ) {
+  __asm__ __volatile__("movq %0, %%r8\n\t"
+                       "movq %1, %%r9\n\t"
+                       "1:\n\t"
+                       "subq $2048, %%r9\n\t"
+                       "clflushopt     0(%%r8)\n\t"
+                       "clflushopt    64(%%r8)\n\t"
+                       "clflushopt   128(%%r8)\n\t"
+                       "clflushopt   192(%%r8)\n\t"
+                       "clflushopt   256(%%r8)\n\t"
+                       "clflushopt   320(%%r8)\n\t"
+                       "clflushopt   384(%%r8)\n\t"
+                       "clflushopt   448(%%r8)\n\t"
+                       "clflushopt   512(%%r8)\n\t"
+                       "clflushopt   576(%%r8)\n\t"
+                       "clflushopt   640(%%r8)\n\t"
+                       "clflushopt   704(%%r8)\n\t"
+                       "clflushopt   768(%%r8)\n\t"
+                       "clflushopt   832(%%r8)\n\t"
+                       "clflushopt   896(%%r8)\n\t"
+                       "clflushopt   960(%%r8)\n\t"
+                       "clflushopt  1024(%%r8)\n\t"
+                       "clflushopt  1088(%%r8)\n\t"
+                       "clflushopt  1152(%%r8)\n\t"
+                       "clflushopt  1216(%%r8)\n\t"
+                       "clflushopt  1280(%%r8)\n\t"
+                       "clflushopt  1344(%%r8)\n\t"
+                       "clflushopt  1408(%%r8)\n\t"
+                       "clflushopt  1472(%%r8)\n\t"
+                       "clflushopt  1536(%%r8)\n\t"
+                       "clflushopt  1600(%%r8)\n\t"
+                       "clflushopt  1664(%%r8)\n\t"
+                       "clflushopt  1728(%%r8)\n\t"
+                       "clflushopt  1792(%%r8)\n\t"
+                       "clflushopt  1856(%%r8)\n\t"
+                       "clflushopt  1920(%%r8)\n\t"
+                       "clflushopt  1984(%%r8)\n\t"
+                       "addq $2048, %%r8\n\t"
+                       "cmpq $0, %%r9\n\t"
+                       "jg 1b\n\t"
+                       : : "m"(i_buffer), "r"(i_length) : "r8","r9");
+} 
+
 int main(int argc, char* argv[]) {
   size_t l_n_bytes = 0;
   size_t l_n_levels = 0;
@@ -508,10 +551,14 @@ int main(int argc, char* argv[]) {
 
   printf("\nRunning detailed timing for round-robin read ...\n");
   {
-    size_t* l_tsc_timer; 
+    size_t* l_tsc_timer;
+    char* l_cache_wiper;
+    size_t l_cache_wiper_size = l_n_bytes*l_n_levels;  
     /* allocatopm pf timer arrary */
     l_tsc_timer = (size_t*) malloc( l_n_workers*l_n_levels*l_n_oiters*6*sizeof(size_t) );
     memset( (void*)l_tsc_timer, 0, l_n_workers*l_n_levels*l_n_oiters*6*sizeof(size_t) );
+    posix_memalign( (void**)&(l_cache_wiper), 4096, l_cache_wiper_size*sizeof(char) );
+    memset( (void*)l_cache_wiper, 0, l_cache_wiper_size );
 #if defined(_OPENMP)
 # pragma omp parallel private(i,j,k) num_threads(l_n_workers)
 #endif
@@ -523,6 +570,10 @@ int main(int argc, char* argv[]) {
 #endif
     for ( i = 0; i < l_n_oiters; ++i ) {
       for ( j = 0; j < l_n_levels; ++j ) {
+        char my_wiper_size = l_cache_wiper_size / l_n_workers;
+        char my_wiper_start = tid * my_wiper_size;
+        read_buffer( l_cache_wiper + my_wiper_start, my_wiper_size );
+        clflush_buffer( l_cache_wiper + my_wiper_start, my_wiper_size );
         for ( k = 0; k < l_n_iiters; ++k ) {
           char* my_buffer = l_n_buffers[j];
           size_t my_size = l_n_bytes / l_n_parts;
@@ -638,6 +689,7 @@ int main(int argc, char* argv[]) {
       printf("  avg: %f, min: %f, max: %f B/c\n", (double)my_size/(double)l_tot_avg_cycles, (double)my_size/(double)l_tot_max_cycles, (double)my_size/(double)l_tot_min_cycles );
     }
     free( l_tsc_timer );
+    free( l_cache_wiper );
   }  
   /* free data */
   for ( i = 0; i < l_n_levels; ++i ) {
