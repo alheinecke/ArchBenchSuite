@@ -555,11 +555,23 @@ int main(int argc, char* argv[]) {
 #define SEQ_LLC_ALLOC
 #endif
 #if 0
-#define GROUP_LLC_ALLOC
+/* % n_parts -> n_shr_degree parallel cores */
+#define GROUP_LLC_ALLOC_A
+#endif
+#if 0
+/* % shr degree -> n_parts parallel cores */
+#define GROUP_LLC_ALLOC_B
 #endif
 
-#if defined(SEQ_LLC_ALLOC) && defined(GROUP_LLC_ALLOC)
-#error SEQ_LLC_ALLOC and GROUP_LLC_ALLOC cannot be defined at the same time
+
+#if defined(SEQ_LLC_ALLOC) && defined(GROUP_LLC_ALLOC_A)
+#error SEQ_LLC_ALLOC and GROUP_LLC_ALLOC_A cannot be defined at the same time
+#endif
+#if defined(SEQ_LLC_ALLOC) && defined(GROUP_LLC_ALLOC_B)
+#error SEQ_LLC_ALLOC and GROUP_LLC_ALLOC_A cannot be defined at the same time
+#endif
+#if defined(GROUP_LLC_ALLOC_B) && defined(GROUP_LLC_ALLOC_A)
+#error GROUP_LLC_ALLOC_B and GROUP_LLC_ALLOC_A cannot be defined at the same time
 #endif
 
   printf("\nRunning detailed timing for round-robin read ...\n");
@@ -617,13 +629,13 @@ int main(int argc, char* argv[]) {
           l_tsc_timer[(tid*l_n_levels*l_n_oiters*6) + (j*l_n_oiters*6) + (i*6) + 0] = __rdtsc(); 
           read_buffer( my_buffer + my_start + ( ( (0+my_tid) % my_shr_deg ) * my_kern_size), my_kern_size );
           l_tsc_timer[(tid*l_n_levels*l_n_oiters*6) + (j*l_n_oiters*6) + (i*6) + 1] = __rdtsc();
-#if defined(GROUP_LLC_ALLOC) || defined(SEQ_LLC_ALLOC)
+#if defined(GROUP_LLC_ALLOC_A) ||  defined(GROUP_LLC_ALLOC_B) || defined(SEQ_LLC_ALLOC)
           if (tid == 0) l_counter = 0;
 #endif
 #if defined(_OPENMP)
 # pragma omp barrier
 #endif
-#if defined(GROUP_LLC_ALLOC)
+#if defined(GROUP_LLC_ALLOC_A)
           if ( ( i == l_iter_to_analyze ) && ( j == l_level_to_analyze ) ) {
             while ( l_counter != (tid % l_n_parts) ) {
             }
@@ -633,6 +645,24 @@ int main(int argc, char* argv[]) {
               l_tsc_timer[(tid*l_n_levels*l_n_oiters*6) + (j*l_n_oiters*6) + (i*6) + 3] = __rdtsc(); 
             }
             if ( tid < l_n_parts ) l_counter++;
+          } else {
+            if ( my_shr_deg > 1 ) {
+              l_tsc_timer[(tid*l_n_levels*l_n_oiters*6) + (j*l_n_oiters*6) + (i*6) + 2] = __rdtsc();
+              read_buffer( my_buffer + my_start + ( ( (1+my_tid) % my_shr_deg ) * my_kern_size), my_kern_size );
+              l_tsc_timer[(tid*l_n_levels*l_n_oiters*6) + (j*l_n_oiters*6) + (i*6) + 3] = __rdtsc();
+            }
+          }
+#endif
+#if defined(GROUP_LLC_ALLOC_B)
+          if ( ( i == l_iter_to_analyze ) && ( j == l_level_to_analyze ) ) {
+            while ( l_counter != (tid % my_shr_deg) ) {
+            }
+            if ( my_shr_deg > 1 ) {
+              l_tsc_timer[(tid*l_n_levels*l_n_oiters*6) + (j*l_n_oiters*6) + (i*6) + 2] = __rdtsc(); 
+              read_buffer( my_buffer + my_start + ( ( (1+my_tid) % my_shr_deg ) * my_kern_size), my_kern_size );
+              l_tsc_timer[(tid*l_n_levels*l_n_oiters*6) + (j*l_n_oiters*6) + (i*6) + 3] = __rdtsc(); 
+            }
+            if ( tid < my_shr_deg ) l_counter++;
           } else {
             if ( my_shr_deg > 1 ) {
               l_tsc_timer[(tid*l_n_levels*l_n_oiters*6) + (j*l_n_oiters*6) + (i*6) + 2] = __rdtsc();
@@ -659,7 +689,7 @@ int main(int argc, char* argv[]) {
             }
           }
 #endif
-#if !defined(GROUP_LLC_ALLOC) && !defined(SEQ_LLC_ALLOC)
+#if !defined(GROUP_LLC_ALLOC_A) && !defined(GROUP_LLC_ALLOC_B) && !defined(SEQ_LLC_ALLOC)
           if ( my_shr_deg > 1 ) {
             l_tsc_timer[(tid*l_n_levels*l_n_oiters*6) + (j*l_n_oiters*6) + (i*6) + 2] = __rdtsc();
             read_buffer( my_buffer + my_start + ( ( (1+my_tid) % my_shr_deg ) * my_kern_size), my_kern_size );
