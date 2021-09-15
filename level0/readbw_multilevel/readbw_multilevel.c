@@ -63,6 +63,16 @@
 
 #define MY_MIN(A,B) (((A)<(B))?(A):(B))
 
+#if 0
+#define USE_ROTATION_SCHEME
+#endif
+#if 0
+#define CLFLUSH_BUFFER_WHEN_DONE
+#endif
+#if 0
+#define PERFORM_DETAILED_ANALYSIS
+#endif
+
 #if defined(USE_CORE_PERF_SNP) || defined(USE_CORE_PERF_L2IN) || defined(USE_CORE_PERF_IPC) || defined(USE_UNCORE_PERF_DRAM_BW) || defined(USE_UNCORE_PERF_LLC_VICTIMS) || defined(USE_UNCORE_PERF_CHA_UTIL) || defined(USE_UNCORE_PREF_AK_UTIL) || defined(USE_UNCORE_PREF_IV_UTIL)
 #  include "../common/perf_counter_markers.h"
 #endif
@@ -351,7 +361,7 @@ int main(int argc, char* argv[]) {
           size_t my_size = l_n_bytes / l_n_parts;
           size_t my_offset = (size_t)tid / ( l_n_workers / l_n_parts );
           size_t my_start = my_offset * my_size;
-#if 1
+#if defined(USE_ROTATION_SCHEME)
           size_t my_shr_deg = l_n_workers / l_n_parts;
           size_t my_kern_size = my_size / my_shr_deg;
           size_t my_tid = tid % my_shr_deg;
@@ -368,6 +378,19 @@ int main(int argc, char* argv[]) {
         }
 #if defined(_OPENMP)
 # pragma omp barrier
+#endif
+#if defined(CLFLUSH_BUFFER_WHEN_DONE)
+        {
+          char* my_buffer = l_n_buffers[j];
+          size_t my_size = l_n_bytes / l_n_parts;
+          size_t my_offset = (size_t)tid / ( l_n_workers / l_n_parts );
+          size_t my_start = my_offset * my_size;
+          size_t my_shr_deg = l_n_workers / l_n_parts;
+          size_t my_kern_size = my_size / my_shr_deg;
+          size_t my_tid = tid % my_shr_deg;
+ 
+          clflush_buffer(  my_buffer + my_start + ( ( (0+my_tid) % my_shr_deg ) * my_kern_size), my_kern_size ); 
+        }
 #endif
       }
     }
@@ -399,7 +422,7 @@ int main(int argc, char* argv[]) {
           size_t my_size = l_n_bytes / l_n_parts;
           size_t my_offset = (size_t)tid / ( l_n_workers / l_n_parts );
           size_t my_start = my_offset * my_size;
-#if 1
+#if defined(USE_ROTATION_SCHEME)
           size_t my_shr_deg = l_n_workers / l_n_parts;
           size_t my_kern_size = my_size / my_shr_deg;
           size_t my_tid = tid % my_shr_deg;
@@ -416,6 +439,19 @@ int main(int argc, char* argv[]) {
         }
 #if defined(_OPENMP)
 # pragma omp barrier
+#endif
+#if defined(CLFLUSH_BUFFER_WHEN_DONE)
+        {
+          char* my_buffer = l_n_buffers[j];
+          size_t my_size = l_n_bytes / l_n_parts;
+          size_t my_offset = (size_t)tid / ( l_n_workers / l_n_parts );
+          size_t my_start = my_offset * my_size;
+          size_t my_shr_deg = l_n_workers / l_n_parts;
+          size_t my_kern_size = my_size / my_shr_deg;
+          size_t my_tid = tid % my_shr_deg;
+ 
+          clflush_buffer(  my_buffer + my_start + ( ( (0+my_tid) % my_shr_deg ) * my_kern_size), my_kern_size ); 
+        }
 #endif
       }
       if (tid == 0) gettimeofday(&(l_endTime_arr[i]), NULL);
@@ -548,6 +584,7 @@ int main(int argc, char* argv[]) {
   }
 #endif
 
+#if defined(PERFORM_DETAILED_ANALYSIS)
 #if 0
 #define FLUSH_CACHE_BEFORE
 #endif
@@ -827,7 +864,9 @@ int main(int argc, char* argv[]) {
       printf("  avg: %f, min: %f, max: %f B/c\n", (double)my_size/(double)l_tot_avg_cycles, (double)my_size/(double)l_tot_max_cycles, (double)my_size/(double)l_tot_min_cycles );
     }
     free( l_tsc_timer );
-  }  
+  } 
+#endif
+ 
   /* free data */
   for ( i = 0; i < l_n_levels; ++i ) {
     free( l_n_buffers[i] );
