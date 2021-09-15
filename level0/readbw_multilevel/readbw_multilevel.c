@@ -552,6 +552,9 @@ int main(int argc, char* argv[]) {
 #define FLUSH_CACHE_BEFORE
 #endif
 #if 0
+#define FLUSH_CACHE_AFTER
+#endif
+#if 0
 #define SEQ_LLC_ALLOC
 #endif
 #if 0
@@ -573,6 +576,9 @@ int main(int argc, char* argv[]) {
 #if defined(GROUP_LLC_ALLOC_B) && defined(GROUP_LLC_ALLOC_A)
 #error GROUP_LLC_ALLOC_B and GROUP_LLC_ALLOC_A cannot be defined at the same time
 #endif
+#if defined(FLUSH_CACHE_BEFORE) && defined(FLUSH_CACHE_AFTER)
+#error FLUSH_CACHE_BEFORE and FLUSH_CACHE_AFTER cannot be defined at the same time
+#endif
 
   printf("\nRunning detailed timing for round-robin read ...\n");
   {
@@ -589,8 +595,8 @@ int main(int argc, char* argv[]) {
       return -1;
     }
     /* allocatopm pf timer arrary */
-    l_tsc_timer = (size_t*) malloc( l_n_workers*l_n_levels*l_n_oiters*6*sizeof(size_t) );
-    memset( (void*)l_tsc_timer, 0, l_n_workers*l_n_levels*l_n_oiters*6*sizeof(size_t) );
+    l_tsc_timer = (size_t*) malloc( l_n_workers*l_n_levels*l_n_oiters*8*sizeof(size_t) );
+    memset( (void*)l_tsc_timer, 0, l_n_workers*l_n_levels*l_n_oiters*8*sizeof(size_t) );
 #if defined(_OPENMP)
 # pragma omp parallel private(i,j,k) num_threads(l_n_workers)
 #endif
@@ -602,7 +608,7 @@ int main(int argc, char* argv[]) {
 #endif
     for ( i = 0; i < l_n_oiters; ++i ) {
       for ( j = 0; j < l_n_levels; ++j ) {
-#ifdef FLUSH_CACHE_BEFORE
+#if defined(FLUSH_CACHE_BEFORE)
         if ( ( i == l_iter_to_analyze ) && ( j == l_level_to_analyze ) ) {
           size_t t;
           for ( t = 0; t < l_level_to_analyze; ++t ) {
@@ -626,9 +632,9 @@ int main(int argc, char* argv[]) {
           size_t my_kern_size = my_size / my_shr_deg;
           size_t my_tid = tid % my_shr_deg;
           size_t l;
-          l_tsc_timer[(tid*l_n_levels*l_n_oiters*6) + (j*l_n_oiters*6) + (i*6) + 0] = __rdtsc(); 
+          l_tsc_timer[(tid*l_n_levels*l_n_oiters*8) + (j*l_n_oiters*8) + (i*8) + 0] = __rdtsc(); 
           read_buffer( my_buffer + my_start + ( ( (0+my_tid) % my_shr_deg ) * my_kern_size), my_kern_size );
-          l_tsc_timer[(tid*l_n_levels*l_n_oiters*6) + (j*l_n_oiters*6) + (i*6) + 1] = __rdtsc();
+          l_tsc_timer[(tid*l_n_levels*l_n_oiters*8) + (j*l_n_oiters*8) + (i*8) + 1] = __rdtsc();
 #if defined(GROUP_LLC_ALLOC_A) ||  defined(GROUP_LLC_ALLOC_B) || defined(SEQ_LLC_ALLOC)
           if (tid == 0) l_counter = 0;
 #endif
@@ -640,16 +646,16 @@ int main(int argc, char* argv[]) {
             while ( l_counter != (tid % l_n_parts) ) {
             }
             if ( my_shr_deg > 1 ) {
-              l_tsc_timer[(tid*l_n_levels*l_n_oiters*6) + (j*l_n_oiters*6) + (i*6) + 2] = __rdtsc(); 
+              l_tsc_timer[(tid*l_n_levels*l_n_oiters*8) + (j*l_n_oiters*8) + (i*8) + 2] = __rdtsc(); 
               read_buffer( my_buffer + my_start + ( ( (1+my_tid) % my_shr_deg ) * my_kern_size), my_kern_size );
-              l_tsc_timer[(tid*l_n_levels*l_n_oiters*6) + (j*l_n_oiters*6) + (i*6) + 3] = __rdtsc(); 
+              l_tsc_timer[(tid*l_n_levels*l_n_oiters*8) + (j*l_n_oiters*8) + (i*8) + 3] = __rdtsc(); 
             }
             if ( tid < l_n_parts ) l_counter++;
           } else {
             if ( my_shr_deg > 1 ) {
-              l_tsc_timer[(tid*l_n_levels*l_n_oiters*6) + (j*l_n_oiters*6) + (i*6) + 2] = __rdtsc();
+              l_tsc_timer[(tid*l_n_levels*l_n_oiters*8) + (j*l_n_oiters*8) + (i*8) + 2] = __rdtsc();
               read_buffer( my_buffer + my_start + ( ( (1+my_tid) % my_shr_deg ) * my_kern_size), my_kern_size );
-              l_tsc_timer[(tid*l_n_levels*l_n_oiters*6) + (j*l_n_oiters*6) + (i*6) + 3] = __rdtsc();
+              l_tsc_timer[(tid*l_n_levels*l_n_oiters*8) + (j*l_n_oiters*8) + (i*8) + 3] = __rdtsc();
             }
           }
 #endif
@@ -658,16 +664,16 @@ int main(int argc, char* argv[]) {
             while ( l_counter != (tid % my_shr_deg) ) {
             }
             if ( my_shr_deg > 1 ) {
-              l_tsc_timer[(tid*l_n_levels*l_n_oiters*6) + (j*l_n_oiters*6) + (i*6) + 2] = __rdtsc(); 
+              l_tsc_timer[(tid*l_n_levels*l_n_oiters*8) + (j*l_n_oiters*8) + (i*8) + 2] = __rdtsc(); 
               read_buffer( my_buffer + my_start + ( ( (1+my_tid) % my_shr_deg ) * my_kern_size), my_kern_size );
-              l_tsc_timer[(tid*l_n_levels*l_n_oiters*6) + (j*l_n_oiters*6) + (i*6) + 3] = __rdtsc(); 
+              l_tsc_timer[(tid*l_n_levels*l_n_oiters*8) + (j*l_n_oiters*8) + (i*8) + 3] = __rdtsc(); 
             }
             if ( tid < my_shr_deg ) l_counter++;
           } else {
             if ( my_shr_deg > 1 ) {
-              l_tsc_timer[(tid*l_n_levels*l_n_oiters*6) + (j*l_n_oiters*6) + (i*6) + 2] = __rdtsc();
+              l_tsc_timer[(tid*l_n_levels*l_n_oiters*8) + (j*l_n_oiters*8) + (i*8) + 2] = __rdtsc();
               read_buffer( my_buffer + my_start + ( ( (1+my_tid) % my_shr_deg ) * my_kern_size), my_kern_size );
-              l_tsc_timer[(tid*l_n_levels*l_n_oiters*6) + (j*l_n_oiters*6) + (i*6) + 3] = __rdtsc();
+              l_tsc_timer[(tid*l_n_levels*l_n_oiters*8) + (j*l_n_oiters*8) + (i*8) + 3] = __rdtsc();
             }
           }
 #endif
@@ -676,38 +682,46 @@ int main(int argc, char* argv[]) {
             while ( l_counter < tid ) {
             }
             if ( my_shr_deg > 1 ) {
-              l_tsc_timer[(tid*l_n_levels*l_n_oiters*6) + (j*l_n_oiters*6) + (i*6) + 2] = __rdtsc(); 
+              l_tsc_timer[(tid*l_n_levels*l_n_oiters*8) + (j*l_n_oiters*8) + (i*8) + 2] = __rdtsc(); 
               read_buffer( my_buffer + my_start + ( ( (1+my_tid) % my_shr_deg ) * my_kern_size), my_kern_size );
-              l_tsc_timer[(tid*l_n_levels*l_n_oiters*6) + (j*l_n_oiters*6) + (i*6) + 3] = __rdtsc(); 
+              l_tsc_timer[(tid*l_n_levels*l_n_oiters*8) + (j*l_n_oiters*8) + (i*8) + 3] = __rdtsc(); 
             }
             l_counter++;
           } else {
             if ( my_shr_deg > 1 ) {
-              l_tsc_timer[(tid*l_n_levels*l_n_oiters*6) + (j*l_n_oiters*6) + (i*6) + 2] = __rdtsc();
+              l_tsc_timer[(tid*l_n_levels*l_n_oiters*8) + (j*l_n_oiters*8) + (i*8) + 2] = __rdtsc();
               read_buffer( my_buffer + my_start + ( ( (1+my_tid) % my_shr_deg ) * my_kern_size), my_kern_size );
-              l_tsc_timer[(tid*l_n_levels*l_n_oiters*6) + (j*l_n_oiters*6) + (i*6) + 3] = __rdtsc();
+              l_tsc_timer[(tid*l_n_levels*l_n_oiters*8) + (j*l_n_oiters*8) + (i*8) + 3] = __rdtsc();
             }
           }
 #endif
 #if !defined(GROUP_LLC_ALLOC_A) && !defined(GROUP_LLC_ALLOC_B) && !defined(SEQ_LLC_ALLOC)
           if ( my_shr_deg > 1 ) {
-            l_tsc_timer[(tid*l_n_levels*l_n_oiters*6) + (j*l_n_oiters*6) + (i*6) + 2] = __rdtsc();
+            l_tsc_timer[(tid*l_n_levels*l_n_oiters*8) + (j*l_n_oiters*8) + (i*8) + 2] = __rdtsc();
             read_buffer( my_buffer + my_start + ( ( (1+my_tid) % my_shr_deg ) * my_kern_size), my_kern_size );
-            l_tsc_timer[(tid*l_n_levels*l_n_oiters*6) + (j*l_n_oiters*6) + (i*6) + 3] = __rdtsc();
+            l_tsc_timer[(tid*l_n_levels*l_n_oiters*8) + (j*l_n_oiters*8) + (i*8) + 3] = __rdtsc();
           }
 #endif
 #if defined(_OPENMP)
 # pragma omp barrier
 #endif
-          l_tsc_timer[(tid*l_n_levels*l_n_oiters*6) + (j*l_n_oiters*6) + (i*6) + 4] = __rdtsc(); 
+          l_tsc_timer[(tid*l_n_levels*l_n_oiters*8) + (j*l_n_oiters*8) + (i*8) + 4] = __rdtsc(); 
           for ( l = 2; l < my_shr_deg; ++l ) {
             read_buffer( my_buffer + my_start + ( ( (l+my_tid) % my_shr_deg ) * my_kern_size), my_kern_size );
           }
-          l_tsc_timer[(tid*l_n_levels*l_n_oiters*6) + (j*l_n_oiters*6) + (i*6) + 5] = __rdtsc(); 
-        }
+          l_tsc_timer[(tid*l_n_levels*l_n_oiters*8) + (j*l_n_oiters*8) + (i*8) + 5] = __rdtsc(); 
 #if defined(_OPENMP)
 # pragma omp barrier
 #endif
+#if defined(FLUSH_CACHE_AFTER)
+          l_tsc_timer[(tid*l_n_levels*l_n_oiters*8) + (j*l_n_oiters*8) + (i*8) + 6] = __rdtsc(); 
+          clflush_buffer( my_buffer + my_start + ( ( (0+my_tid) % my_shr_deg ) * my_kern_size), my_kern_size );
+          l_tsc_timer[(tid*l_n_levels*l_n_oiters*8) + (j*l_n_oiters*8) + (i*8) + 7] = __rdtsc();
+#if defined(_OPENMP)
+# pragma omp barrier
+#endif
+#endif
+        }
       }
     }
   }
@@ -730,11 +744,11 @@ int main(int argc, char* argv[]) {
       printf("\nPhase I Perf - reading in data\n");
       printf("  per core:\n"); 
       for ( tid = 0; tid < l_n_workers; ++tid ) {
-        size_t l_cycles = l_tsc_timer[(tid*l_n_levels*l_n_oiters*6) + (j*l_n_oiters*6) + (i*6) + 1] - l_tsc_timer[(tid*l_n_levels*l_n_oiters*6) + (j*l_n_oiters*6) + (i*6) + 0];
+        size_t l_cycles = l_tsc_timer[(tid*l_n_levels*l_n_oiters*8) + (j*l_n_oiters*8) + (i*8) + 1] - l_tsc_timer[(tid*l_n_levels*l_n_oiters*8) + (j*l_n_oiters*8) + (i*8) + 0];
         l_avg_cycles += l_cycles;
         l_min_cycles = (l_cycles < l_min_cycles) ? l_cycles : l_min_cycles; 
         l_max_cycles = (l_cycles > l_max_cycles) ? l_cycles : l_max_cycles;
-        printf("     worker %.3i: %f B/c (%lld, %lld, %lld, %lld) \n", tid, (double)my_kern_size/(double)l_cycles, my_kern_size, l_tsc_timer[(tid*l_n_levels*l_n_oiters*6) + (j*l_n_oiters*6) + (i*6) + 0],  l_tsc_timer[(tid*l_n_levels*l_n_oiters*6) + (j*l_n_oiters*6) + (i*6) + 1], l_cycles );
+        printf("     worker %.3i: %f B/c (%lld, %lld, %lld, %lld) \n", tid, (double)my_kern_size/(double)l_cycles, my_kern_size, l_tsc_timer[(tid*l_n_levels*l_n_oiters*8) + (j*l_n_oiters*8) + (i*8) + 0],  l_tsc_timer[(tid*l_n_levels*l_n_oiters*8) + (j*l_n_oiters*8) + (i*8) + 1], l_cycles );
       }
       l_avg_cycles /= l_n_workers;
       printf("  avg: %f, min: %f, max: %f B/c\n", (double)my_kern_size/(double)l_avg_cycles, (double)my_kern_size/(double)l_max_cycles, (double)my_kern_size/(double)l_min_cycles );
@@ -750,11 +764,11 @@ int main(int argc, char* argv[]) {
         printf("\nPhase II Perf - making data shared\n");
         printf("  per core:\n"); 
         for ( tid = 0; tid < l_n_workers; ++tid ) {
-          size_t l_cycles = l_tsc_timer[(tid*l_n_levels*l_n_oiters*6) + (j*l_n_oiters*6) + (i*6) + 3] - l_tsc_timer[(tid*l_n_levels*l_n_oiters*6) + (j*l_n_oiters*6) + (i*6) + 2];
+          size_t l_cycles = l_tsc_timer[(tid*l_n_levels*l_n_oiters*8) + (j*l_n_oiters*8) + (i*8) + 3] - l_tsc_timer[(tid*l_n_levels*l_n_oiters*8) + (j*l_n_oiters*8) + (i*8) + 2];
           l_avg_cycles += l_cycles;
           l_min_cycles = (l_cycles < l_min_cycles) ? l_cycles : l_min_cycles; 
           l_max_cycles = (l_cycles > l_max_cycles) ? l_cycles : l_max_cycles;
-          printf("     worker %.3i: %f B/c (%lld, %lld, %lld, %lld) \n", tid, (double)my_kern_size/(double)l_cycles, my_kern_size, l_tsc_timer[(tid*l_n_levels*l_n_oiters*6) + (j*l_n_oiters*6) + (i*6) + 0],  l_tsc_timer[(tid*l_n_levels*l_n_oiters*6) + (j*l_n_oiters*6) + (i*6) + 1], l_cycles );
+          printf("     worker %.3i: %f B/c (%lld, %lld, %lld, %lld) \n", tid, (double)my_kern_size/(double)l_cycles, my_kern_size, l_tsc_timer[(tid*l_n_levels*l_n_oiters*8) + (j*l_n_oiters*8) + (i*8) + 0],  l_tsc_timer[(tid*l_n_levels*l_n_oiters*8) + (j*l_n_oiters*8) + (i*8) + 1], l_cycles );
         }
         l_avg_cycles /= l_n_workers;
         printf("  avg: %f, min: %f, max: %f B/c\n", (double)my_kern_size/(double)l_avg_cycles, (double)my_kern_size/(double)l_max_cycles, (double)my_kern_size/(double)l_min_cycles );
@@ -772,11 +786,11 @@ int main(int argc, char* argv[]) {
         printf("  per core:\n");
         size_t shared_size = my_size - (2*my_kern_size);
         for ( tid = 0; tid < l_n_workers; ++tid ) {
-          size_t l_cycles = l_tsc_timer[(tid*l_n_levels*l_n_oiters*6) + (j*l_n_oiters*6) + (i*6) + 5] - l_tsc_timer[(tid*l_n_levels*l_n_oiters*6) + (j*l_n_oiters*6) + (i*6) + 4];
+          size_t l_cycles = l_tsc_timer[(tid*l_n_levels*l_n_oiters*8) + (j*l_n_oiters*8) + (i*8) + 5] - l_tsc_timer[(tid*l_n_levels*l_n_oiters*8) + (j*l_n_oiters*8) + (i*8) + 4];
           l_avg_cycles += l_cycles;
           l_min_cycles = (l_cycles < l_min_cycles) ? l_cycles : l_min_cycles; 
           l_max_cycles = (l_cycles > l_max_cycles) ? l_cycles : l_max_cycles;
-          printf("     worker %.3i: %f B/c (%lld, %lld, %lld, %lld) \n", tid, (double)shared_size/(double)l_cycles, shared_size, l_tsc_timer[(tid*l_n_levels*l_n_oiters*6) + (j*l_n_oiters*6) + (i*6) + 0],  l_tsc_timer[(tid*l_n_levels*l_n_oiters*6) + (j*l_n_oiters*6) + (i*6) + 1], l_cycles );
+          printf("     worker %.3i: %f B/c (%lld, %lld, %lld, %lld) \n", tid, (double)shared_size/(double)l_cycles, shared_size, l_tsc_timer[(tid*l_n_levels*l_n_oiters*8) + (j*l_n_oiters*8) + (i*8) + 0],  l_tsc_timer[(tid*l_n_levels*l_n_oiters*8) + (j*l_n_oiters*8) + (i*8) + 1], l_cycles );
         }
         l_avg_cycles /= l_n_workers;
         printf("  avg: %f, min: %f, max: %f B/c\n", (double)shared_size/(double)l_avg_cycles, (double)shared_size/(double)l_max_cycles, (double)shared_size/(double)l_min_cycles );
@@ -785,6 +799,29 @@ int main(int argc, char* argv[]) {
         l_tot_min_cycles += l_min_cycles;
         l_tot_max_cycles += l_max_cycles;
       }
+
+#if defined(FLUSH_CACHE_AFTER)
+      l_avg_cycles = 0;
+      l_min_cycles = 0xffffffffffffffff;
+      l_max_cycles = 0;
+      printf("\nPhase IV Perf - flush caches\n");
+      printf("  per core:\n"); 
+      for ( tid = 0; tid < l_n_workers; ++tid ) {
+        size_t l_cycles = l_tsc_timer[(tid*l_n_levels*l_n_oiters*8) + (j*l_n_oiters*8) + (i*8) + 7] - l_tsc_timer[(tid*l_n_levels*l_n_oiters*8) + (j*l_n_oiters*8) + (i*8) + 6];
+        l_avg_cycles += l_cycles;
+        l_min_cycles = (l_cycles < l_min_cycles) ? l_cycles : l_min_cycles; 
+        l_max_cycles = (l_cycles > l_max_cycles) ? l_cycles : l_max_cycles;
+        printf("     worker %.3i: %f B/c (%lld, %lld, %lld, %lld) \n", tid, (double)my_kern_size/(double)l_cycles, my_kern_size, l_tsc_timer[(tid*l_n_levels*l_n_oiters*8) + (j*l_n_oiters*8) + (i*8) + 6],  l_tsc_timer[(tid*l_n_levels*l_n_oiters*8) + (j*l_n_oiters*8) + (i*8) + 7], l_cycles );
+        }
+      l_avg_cycles /= l_n_workers;
+      printf("  avg: %f, min: %f, max: %f B/c\n", (double)my_kern_size/(double)l_avg_cycles, (double)my_kern_size/(double)l_max_cycles, (double)my_kern_size/(double)l_min_cycles );
+
+/*
+      l_tot_avg_cycles += l_avg_cycles;
+      l_tot_min_cycles += l_min_cycles;
+      l_tot_max_cycles += l_max_cycles;
+*/
+#endif
 
       printf("\nTotal Perf - reading shared data\n");
       printf("  avg: %f, min: %f, max: %f B/c\n", (double)my_size/(double)l_tot_avg_cycles, (double)my_size/(double)l_tot_max_cycles, (double)my_size/(double)l_tot_min_cycles );
