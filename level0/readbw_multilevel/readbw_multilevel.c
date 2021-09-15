@@ -751,7 +751,7 @@ int main(int argc, char* argv[]) {
         printf("     worker %.3i: %f B/c (%lld, %lld, %lld, %lld) \n", tid, (double)my_kern_size/(double)l_cycles, my_kern_size, l_tsc_timer[(tid*l_n_levels*l_n_oiters*8) + (j*l_n_oiters*8) + (i*8) + 0],  l_tsc_timer[(tid*l_n_levels*l_n_oiters*8) + (j*l_n_oiters*8) + (i*8) + 1], l_cycles );
       }
       l_avg_cycles /= l_n_workers;
-      printf("  avg: %f, min: %f, max: %f B/c\n", (double)my_kern_size/(double)l_avg_cycles, (double)my_kern_size/(double)l_max_cycles, (double)my_kern_size/(double)l_min_cycles );
+      printf("  avg: %f, min: %f, max: %f B/c\n  avg: %lld, min: %lld, max: %lld cycles\n  vol: %lld bytes\n", (double)my_kern_size/(double)l_avg_cycles, (double)my_kern_size/(double)l_max_cycles, (double)my_kern_size/(double)l_min_cycles,  l_avg_cycles, l_min_cycles, l_max_cycles, my_kern_size );
 
       l_tot_avg_cycles += l_avg_cycles;
       l_tot_min_cycles += l_min_cycles;
@@ -771,7 +771,7 @@ int main(int argc, char* argv[]) {
           printf("     worker %.3i: %f B/c (%lld, %lld, %lld, %lld) \n", tid, (double)my_kern_size/(double)l_cycles, my_kern_size, l_tsc_timer[(tid*l_n_levels*l_n_oiters*8) + (j*l_n_oiters*8) + (i*8) + 0],  l_tsc_timer[(tid*l_n_levels*l_n_oiters*8) + (j*l_n_oiters*8) + (i*8) + 1], l_cycles );
         }
         l_avg_cycles /= l_n_workers;
-        printf("  avg: %f, min: %f, max: %f B/c\n", (double)my_kern_size/(double)l_avg_cycles, (double)my_kern_size/(double)l_max_cycles, (double)my_kern_size/(double)l_min_cycles );
+        printf("  avg: %f, min: %f, max: %f B/c\n  avg: %lld, min: %lld, max: %lld cycles\n  vol: %lld bytes\n", (double)my_kern_size/(double)l_avg_cycles, (double)my_kern_size/(double)l_max_cycles, (double)my_kern_size/(double)l_min_cycles, l_avg_cycles, l_min_cycles, l_max_cycles, my_kern_size );
 
         l_tot_avg_cycles += l_avg_cycles;
         l_tot_min_cycles += l_min_cycles;
@@ -793,7 +793,7 @@ int main(int argc, char* argv[]) {
           printf("     worker %.3i: %f B/c (%lld, %lld, %lld, %lld) \n", tid, (double)shared_size/(double)l_cycles, shared_size, l_tsc_timer[(tid*l_n_levels*l_n_oiters*8) + (j*l_n_oiters*8) + (i*8) + 0],  l_tsc_timer[(tid*l_n_levels*l_n_oiters*8) + (j*l_n_oiters*8) + (i*8) + 1], l_cycles );
         }
         l_avg_cycles /= l_n_workers;
-        printf("  avg: %f, min: %f, max: %f B/c\n", (double)shared_size/(double)l_avg_cycles, (double)shared_size/(double)l_max_cycles, (double)shared_size/(double)l_min_cycles );
+        printf("  avg: %f, min: %f, max: %f B/c\n  avg: %lld, min: %lld, max: %lld cycles\n  vol: %lld bytes\n", (double)shared_size/(double)l_avg_cycles, (double)shared_size/(double)l_max_cycles, (double)shared_size/(double)l_min_cycles, l_avg_cycles, l_min_cycles, l_max_cycles, shared_size );
 
         l_tot_avg_cycles += l_avg_cycles;
         l_tot_min_cycles += l_min_cycles;
@@ -814,7 +814,7 @@ int main(int argc, char* argv[]) {
         printf("     worker %.3i: %f B/c (%lld, %lld, %lld, %lld) \n", tid, (double)my_kern_size/(double)l_cycles, my_kern_size, l_tsc_timer[(tid*l_n_levels*l_n_oiters*8) + (j*l_n_oiters*8) + (i*8) + 6],  l_tsc_timer[(tid*l_n_levels*l_n_oiters*8) + (j*l_n_oiters*8) + (i*8) + 7], l_cycles );
         }
       l_avg_cycles /= l_n_workers;
-      printf("  avg: %f, min: %f, max: %f B/c\n", (double)my_kern_size/(double)l_avg_cycles, (double)my_kern_size/(double)l_max_cycles, (double)my_kern_size/(double)l_min_cycles );
+      printf("  avg: %f, min: %f, max: %f B/c\n  avg: %lld, min: %lld, max: %lld cycles\n  vol: %lld bytes\n", (double)my_kern_size/(double)l_avg_cycles, (double)my_kern_size/(double)l_max_cycles, (double)my_kern_size/(double)l_min_cycles, l_avg_cycles, l_min_cycles, l_max_cycles, my_kern_size );
 
 /*
       l_tot_avg_cycles += l_avg_cycles;
