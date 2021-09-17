@@ -72,6 +72,9 @@
 #if 0
 #define PERFORM_DETAILED_ANALYSIS
 #endif
+#if 0
+#define USE_CLDEMOTE
+#endif
 
 #if defined(USE_CORE_PERF_SNP) || defined(USE_CORE_PERF_L2IN) || defined(USE_CORE_PERF_IPC) || defined(USE_UNCORE_PERF_DRAM_BW) || defined(USE_UNCORE_PERF_LLC_VICTIMS) || defined(USE_UNCORE_PERF_CHA_UTIL) || defined(USE_UNCORE_PREF_AK_UTIL) || defined(USE_UNCORE_PREF_IV_UTIL)
 #  include "../common/perf_counter_markers.h"
@@ -119,6 +122,135 @@ void read_buffer( char* i_buffer, size_t i_length ) {
                        "vmovapd  1856(%%r8),  %%zmm29\n\t"
                        "vmovapd  1920(%%r8),  %%zmm30\n\t"
                        "vmovapd  1984(%%r8),  %%zmm31\n\t"
+                       "addq $2048, %%r8\n\t"
+                       "cmpq $0, %%r9\n\t"
+                       "jg 1b\n\t"
+                       : : "m"(i_buffer), "r"(i_length) : "r8","r9","xmm0","xmm1","xmm2","xmm3","xmm4","xmm5","xmm6","xmm7","xmm8","xmm9","xmm10","xmm11","xmm12","xmm13","xmm14","xmm15","xmm16","xmm17","xmm18","xmm19","xmm20","xmm21","xmm22","xmm23","xmm24","xmm25","xmm26","xmm27","xmm28","xmm29","xmm30","xmm31");
+#elif __AVX__
+  __asm__ __volatile__("movq %0, %%r8\n\t"
+                       "movq %1, %%r9\n\t"
+                       "1:\n\t"
+                       "subq $512, %%r9\n\t"
+                       "vmovapd    0(%%r8),   %%ymm0\n\t"
+                       "vmovapd   32(%%r8),   %%ymm1\n\t"
+                       "vmovapd   64(%%r8),   %%ymm2\n\t"
+                       "vmovapd   96(%%r8),   %%ymm3\n\t"
+                       "vmovapd  128(%%r8),   %%ymm4\n\t"
+                       "vmovapd  160(%%r8),   %%ymm5\n\t"
+                       "vmovapd  192(%%r8),   %%ymm6\n\t"
+                       "vmovapd  224(%%r8),   %%ymm7\n\t"
+                       "vmovapd  256(%%r8),   %%ymm8\n\t"
+                       "vmovapd  288(%%r8),   %%ymm9\n\t"
+                       "vmovapd  320(%%r8),  %%ymm10\n\t"
+                       "vmovapd  352(%%r8),  %%ymm11\n\t"
+                       "vmovapd  384(%%r8),  %%ymm12\n\t"
+                       "vmovapd  416(%%r8),  %%ymm13\n\t"
+                       "vmovapd  448(%%r8),  %%ymm14\n\t"
+                       "vmovapd  480(%%r8),  %%ymm15\n\t"
+                       "addq $512, %%r8\n\t"
+                       "cmpq $0, %%r9\n\t"
+                       "jg 1b\n\t"
+                       : : "m"(i_buffer), "r"(i_length) : "r8","r9","xmm0","xmm1","xmm2","xmm3","xmm4","xmm5","xmm6","xmm7","xmm8","xmm9","xmm10","xmm11","xmm12","xmm13","xmm14","xmm15");
+#elif __SSE2__
+  __asm__ __volatile__("movq %0, %%r8\n\t"
+                       "movq %1, %%r9\n\t"
+                       "1:\n\t"
+                       "subq $256, %%r9\n\t"
+                       "movapd    0(%%r8),   %%xmm0\n\t"
+                       "movapd   16(%%r8),   %%xmm1\n\t"
+                       "movapd   32(%%r8),   %%xmm2\n\t"
+                       "movapd   48(%%r8),   %%xmm3\n\t"
+                       "movapd   64(%%r8),   %%xmm4\n\t"
+                       "movapd   80(%%r8),   %%xmm5\n\t"
+                       "movapd   96(%%r8),   %%xmm6\n\t"
+                       "movapd  112(%%r8),   %%xmm7\n\t"
+                       "movapd  128(%%r8),   %%xmm8\n\t"
+                       "movapd  144(%%r8),   %%xmm9\n\t"
+                       "movapd  160(%%r8),  %%xmm10\n\t"
+                       "movapd  176(%%r8),  %%xmm11\n\t"
+                       "movapd  192(%%r8),  %%xmm12\n\t"
+                       "movapd  208(%%r8),  %%xmm13\n\t"
+                       "movapd  224(%%r8),  %%xmm14\n\t"
+                       "movapd  240(%%r8),  %%xmm15\n\t"
+                       "addq $256, %%r8\n\t"
+                       "cmpq $0, %%r9\n\t"
+                       "jg 1b\n\t"
+                       : : "m"(i_buffer), "r"(i_length) : "r8","r9","xmm0","xmm1","xmm2","xmm3","xmm4","xmm5","xmm6","xmm7","xmm8","xmm9","xmm10","xmm11","xmm12","xmm13","xmm14","xmm15");
+#else
+#error need at least SSE2
+#endif
+} 
+
+void read_cldemote_buffer( char* i_buffer, size_t i_length ) {
+#ifdef __AVX512F__
+  __asm__ __volatile__("movq %0, %%r8\n\t"
+                       "movq %1, %%r9\n\t"
+                       "1:\n\t"
+                       "subq $2048, %%r9\n\t"
+                       "vmovapd     0(%%r8),   %%zmm0\n\t"
+                       "vmovapd    64(%%r8),   %%zmm1\n\t"
+                       "vmovapd   128(%%r8),   %%zmm2\n\t"
+                       "vmovapd   192(%%r8),   %%zmm3\n\t"
+                       "vmovapd   256(%%r8),   %%zmm4\n\t"
+                       "vmovapd   320(%%r8),   %%zmm5\n\t"
+                       "vmovapd   384(%%r8),   %%zmm6\n\t"
+                       "vmovapd   448(%%r8),   %%zmm7\n\t"
+                       "vmovapd   512(%%r8),   %%zmm8\n\t"
+                       "vmovapd   576(%%r8),   %%zmm9\n\t"
+                       "vmovapd   640(%%r8),  %%zmm10\n\t"
+                       "vmovapd   704(%%r8),  %%zmm11\n\t"
+                       "vmovapd   768(%%r8),  %%zmm12\n\t"
+                       "vmovapd   832(%%r8),  %%zmm13\n\t"
+                       "vmovapd   896(%%r8),  %%zmm14\n\t"
+                       "vmovapd   960(%%r8),  %%zmm15\n\t"
+                       "vmovapd  1024(%%r8),  %%zmm16\n\t"
+                       "vmovapd  1088(%%r8),  %%zmm17\n\t"
+                       "vmovapd  1152(%%r8),  %%zmm18\n\t"
+                       "vmovapd  1216(%%r8),  %%zmm19\n\t"
+                       "vmovapd  1280(%%r8),  %%zmm20\n\t"
+                       "vmovapd  1344(%%r8),  %%zmm21\n\t"
+                       "vmovapd  1408(%%r8),  %%zmm22\n\t"
+                       "vmovapd  1472(%%r8),  %%zmm23\n\t"
+                       "vmovapd  1536(%%r8),  %%zmm24\n\t"
+                       "vmovapd  1600(%%r8),  %%zmm25\n\t"
+                       "vmovapd  1664(%%r8),  %%zmm26\n\t"
+                       "vmovapd  1728(%%r8),  %%zmm27\n\t"
+                       "vmovapd  1792(%%r8),  %%zmm28\n\t"
+                       "vmovapd  1856(%%r8),  %%zmm29\n\t"
+                       "vmovapd  1920(%%r8),  %%zmm30\n\t"
+                       "vmovapd  1984(%%r8),  %%zmm31\n\t"
+                       "cldemote     0(%%r8)\n\t"
+                       "cldemote    64(%%r8)\n\t"
+                       "cldemote   128(%%r8)\n\t"
+                       "cldemote   192(%%r8)\n\t"
+                       "cldemote   256(%%r8)\n\t"
+                       "cldemote   320(%%r8)\n\t"
+                       "cldemote   384(%%r8)\n\t"
+                       "cldemote   448(%%r8)\n\t"
+                       "cldemote   512(%%r8)\n\t"
+                       "cldemote   576(%%r8)\n\t"
+                       "cldemote   640(%%r8)\n\t"
+                       "cldemote   704(%%r8)\n\t"
+                       "cldemote   768(%%r8)\n\t"
+                       "cldemote   832(%%r8)\n\t"
+                       "cldemote   896(%%r8)\n\t"
+                       "cldemote   960(%%r8)\n\t"
+                       "cldemote  1024(%%r8)\n\t"
+                       "cldemote  1088(%%r8)\n\t"
+                       "cldemote  1152(%%r8)\n\t"
+                       "cldemote  1216(%%r8)\n\t"
+                       "cldemote  1280(%%r8)\n\t"
+                       "cldemote  1344(%%r8)\n\t"
+                       "cldemote  1408(%%r8)\n\t"
+                       "cldemote  1472(%%r8)\n\t"
+                       "cldemote  1536(%%r8)\n\t"
+                       "cldemote  1600(%%r8)\n\t"
+                       "cldemote  1664(%%r8)\n\t"
+                       "cldemote  1728(%%r8)\n\t"
+                       "cldemote  1792(%%r8)\n\t"
+                       "cldemote  1856(%%r8)\n\t"
+                       "cldemote  1920(%%r8)\n\t"
+                       "cldemote  1984(%%r8)\n\t"
                        "addq $2048, %%r8\n\t"
                        "cmpq $0, %%r9\n\t"
                        "jg 1b\n\t"
@@ -431,7 +563,15 @@ int main(int argc, char* argv[]) {
 #if 0
             if (tid == 6) printf("tid: %lld, my_tid: %lld, my_shr_deg: %lld, my_size %lld, my_kern_size: %lld, my_start: %lld, inner_offset: %lld\n", tid, my_tid, my_shr_deg, my_size, my_kern_size, my_start, ( ( (l+my_tid) % my_shr_deg ) * my_kern_size) );
 #endif
+#if defined(USE_CLDEMOTE)
+            if ( l == 0 ) {
+              read_cldemote_buffer( my_buffer + my_start + ( ( (l+my_tid) % my_shr_deg ) * my_kern_size), my_kern_size );
+            } else {
+              read_buffer( my_buffer + my_start + ( ( (l+my_tid) % my_shr_deg ) * my_kern_size), my_kern_size );
+            }
+#else
             read_buffer( my_buffer + my_start + ( ( (l+my_tid) % my_shr_deg ) * my_kern_size), my_kern_size );
+#endif
           }
 #else
           read_buffer( my_buffer + my_start, my_size );
@@ -670,7 +810,11 @@ int main(int argc, char* argv[]) {
           size_t my_tid = tid % my_shr_deg;
           size_t l;
           l_tsc_timer[(tid*l_n_levels*l_n_oiters*8) + (j*l_n_oiters*8) + (i*8) + 0] = __rdtsc(); 
+#if defined(USE_CLDEMOTE)
+          read_cldemote_buffer( my_buffer + my_start + ( ( (0+my_tid) % my_shr_deg ) * my_kern_size), my_kern_size );
+#else
           read_buffer( my_buffer + my_start + ( ( (0+my_tid) % my_shr_deg ) * my_kern_size), my_kern_size );
+#endif
           l_tsc_timer[(tid*l_n_levels*l_n_oiters*8) + (j*l_n_oiters*8) + (i*8) + 1] = __rdtsc();
 #if defined(GROUP_LLC_ALLOC_A) ||  defined(GROUP_LLC_ALLOC_B) || defined(SEQ_LLC_ALLOC)
           if (tid == 0) l_counter = 0;
