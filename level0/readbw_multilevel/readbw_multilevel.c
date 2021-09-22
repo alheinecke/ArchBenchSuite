@@ -67,6 +67,9 @@
 #define USE_ROTATION_SCHEME
 #endif
 #if 0
+#define USE_2LROTATION_SCHEME
+#endif
+#if 0
 #define CLFLUSH_BUFFER_WHEN_DONE
 #endif
 #if 0
@@ -493,7 +496,7 @@ int main(int argc, char* argv[]) {
           size_t my_size = l_n_bytes / l_n_parts;
           size_t my_offset = (size_t)tid / ( l_n_workers / l_n_parts );
           size_t my_start = my_offset * my_size;
-#if defined(USE_ROTATION_SCHEME)
+#if defined(USE_ROTATION_SCHEME) || defined(USE_2LROTATION_SCHEME)
           size_t my_shr_deg = l_n_workers / l_n_parts;
           size_t my_kern_size = my_size / my_shr_deg;
           size_t my_tid = tid % my_shr_deg;
@@ -554,12 +557,15 @@ int main(int argc, char* argv[]) {
           size_t my_size = l_n_bytes / l_n_parts;
           size_t my_offset = (size_t)tid / ( l_n_workers / l_n_parts );
           size_t my_start = my_offset * my_size;
-#if defined(USE_ROTATION_SCHEME)
+#if defined(USE_ROTATION_SCHEME) || defined(USE_2LROTATION_SCHEME)
           size_t my_shr_deg = l_n_workers / l_n_parts;
           size_t my_kern_size = my_size / my_shr_deg;
           size_t my_tid = tid % my_shr_deg;
           size_t l;
           for ( l = 0; l < my_shr_deg; ++l ) {
+#if defined(USE_2LROTATION_SCHEME)
+            my_tid = (my_tid % 2 == 0) ? my_tid : (my_tid/2)*2;
+#endif
 #if 0
             if (tid == 6) printf("tid: %lld, my_tid: %lld, my_shr_deg: %lld, my_size %lld, my_kern_size: %lld, my_start: %lld, inner_offset: %lld\n", tid, my_tid, my_shr_deg, my_size, my_kern_size, my_start, ( ( (l+my_tid) % my_shr_deg ) * my_kern_size) );
 #endif
