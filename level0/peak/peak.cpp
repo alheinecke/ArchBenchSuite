@@ -35,6 +35,12 @@
 #include <omp.h>
 #endif
 
+#ifdef BENCH_CPMSSE
+#include "sse_float_32bit.hpp"
+#endif
+#ifdef BENCH_CPMSSE_SCALAR
+#include "sse_float_32bit_scalar.hpp"
+#endif
 #ifdef BENCH_SLMSSE
 #include "sse_float.hpp"
 #include "sse_double.hpp"
@@ -90,6 +96,12 @@ int main(int argc, char* argv[]) {
   }
 #endif
 
+#ifdef BENCH_CPMSSE
+  std::cout << "Running on a x86 SSE (Coppermine)" << std::endl;
+#endif
+#ifdef BENCH_CPMSSE_SCALAR
+  std::cout << "Running on a x86 Scalar SSE (Coppermine)" << std::endl;
+#endif
 #ifdef BENCH_SLMSSE
   std::cout << "Running on a x86_64 SSE (SLM)" << std::endl;
 #endif
@@ -167,6 +179,12 @@ int main(int argc, char* argv[]) {
   gettimeofday(&l_endTime, NULL);
   l_time = sec(l_startTime, l_endTime);
   l_flops = 0.0;
+#ifdef BENCH_CPMSSE
+  l_flops = 4.0*8.0*(100.0*100.0)*(100.0*100.0);
+#endif
+#ifdef BENCH_CPMSSE_SCALAR
+  l_flops = 1.0*8.0*(100.0*100.0)*(100.0*100.0);
+#endif
 #ifdef BENCH_SLMSSE
   l_flops = 4.0*16.0*(100.0*100.0)*(100.0*100.0);
 #endif
@@ -202,6 +220,12 @@ int main(int argc, char* argv[]) {
   gettimeofday(&l_endTime, NULL);
   l_time = sec(l_startTime, l_endTime);
   l_flops = 0.0;
+#ifdef BENCH_CPMSSE
+  l_flops = 4.0*8.0*(100.0*100.0)*(100.0*100.0);
+#endif
+#ifdef BENCH_CPMSSE_SCALAR
+  l_flops = 1.0*8.0*(100.0*100.0)*(100.0*100.0);
+#endif
 #ifdef BENCH_SLMSSE
   l_flops = 4.0*16.0*(100.0*100.0)*(100.0*100.0);
 #endif
@@ -237,6 +261,12 @@ int main(int argc, char* argv[]) {
   gettimeofday(&l_endTime, NULL);
   l_time = sec(l_startTime, l_endTime);
   l_flops = 0.0;
+#ifdef BENCH_CPMSSE
+  l_flops = 4.0*8.0*(100.0*100.0)*(100.0*100.0);
+#endif
+#ifdef BENCH_CPMSSE_SCALAR
+  l_flops = 1.0*8.0*(100.0*100.0)*(100.0*100.0);
+#endif
 #ifdef BENCH_SLMSSE
   l_flops = 4.0*15.0*(100.0*100.0)*(100.0*100.0);
 #endif

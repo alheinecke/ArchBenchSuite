@@ -33,6 +33,16 @@ OPENMP=0
 CFLAGS:=-O2 -Wall
 EXE=""
 
+ifeq ($(TARGET), ssecpm)
+CFLAGS:=$(CFLAGS) -DBENCH_CPMSSE -msse
+EXE=peak_ssecpm
+endif
+
+ifeq ($(TARGET), ssecpm_s)
+CFLAGS:=$(CFLAGS) -DBENCH_CPMSSE_SCALAR -msse
+EXE=peak_ssecpm_s
+endif
+
 ifeq ($(TARGET), sseslm)
 CFLAGS:=$(CFLAGS) -DBENCH_SLMSSE -msse3
 EXE=peak_sseslm
