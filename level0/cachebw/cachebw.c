@@ -149,7 +149,7 @@ inline void run_benchmark( double* i_data, size_t i_arraySize, size_t i_copies, 
 #endif
 #ifdef __ARM_NEON
         __asm__ __volatile__("mov x0, %0\n\t"
-                             "mov x1, %1\n\t""
+                             "mov x1, %1\n\t"
                              "1:\n\t"
                              "ld1  {v0.2d}, [x0],16\n\t"
                              "ld1  {v1.2d}, [x0],16\n\t"
@@ -281,6 +281,24 @@ inline void run_benchmark( double* i_data, size_t i_arraySize, size_t i_copies, 
                            "cmpq $0, %%r9\n\t"
                            "jg 1b\n\t"
                       : : "m"(l_locAddr), "m"(l_parraySize)  : "r8","r9","r10","xmm0","xmm1","xmm2","xmm3","xmm4","xmm5","xmm6","xmm7","xmm8","xmm9","xmm10","xmm11","xmm12","xmm13","xmm14","xmm15");
+#elif __SSE__
+      __asm__ __volatile__("movl %0, %%eax\n\t"
+                           "movl %1, %%ebx\n\t"
+                           "movl (%%ebx), %%ebx\n\t"
+                           "1:\n\t"
+                           "subl $16, %%ebx\n\t"
+                           "movaps    0(%%eax),   %%xmm0\n\t"
+                           "movaps   16(%%eax),   %%xmm1\n\t"
+                           "movaps   32(%%eax),   %%xmm2\n\t"
+                           "movaps   48(%%eax),   %%xmm3\n\t"
+                           "movaps   64(%%eax),   %%xmm4\n\t"
+                           "movaps   80(%%eax),   %%xmm5\n\t"
+                           "movaps   96(%%eax),   %%xmm6\n\t"
+                           "movaps  112(%%eax),   %%xmm7\n\t"
+                           "addl $128, %%eax\n\t"
+                           "cmpl $0, %%ebx\n\t"
+                           "jg 1b\n\t"
+                      : : "m"(l_locAddr), "m"(l_parraySize)  : "eax","ebx","xmm0","xmm1","xmm2","xmm3","xmm4","xmm5","xmm6","xmm7");
 #endif
       }
     } 

@@ -32,16 +32,21 @@ CC = gcc
 CFLAGS = -O2 -fopenmp -march=armv8-a -fstrict-aliasing
 #CFLAGS = -O2 -fopenmp -mavx2 -fstrict-aliasing
 #CFLAGS = -O2 -fopenmp -msse3 -fstrict-aliasing
-CC = icc
+#CFLAGS = -O2 -fopenmp -msse3 -fstrict-aliasing
+CFLAGS = -O2 -msse -fstrict-aliasing
+#CC = icc
 #CFLAGS = -O3 -xHost -qopenmp
 #CFLAGS = -O3 -xMIC-AVX512 -qopenmp
-CFLAGS = -O3 -xCOMMON-AVX512 -qopenmp
+#CFLAGS = -O3 -xCOMMON-AVX512 -qopenmp
 #CFLAGS = -O3 -xCORE-AVX2 -qopenmp
 
 all: cachebw.exe
 
-cachebw.exe: cachebw.c ./../common/perf_counter_markers.c
-	$(CC) $(CFLAGS) ./../common/perf_counter_markers.c cachebw.c -o cachebw.exe
+#cachebw.exe: cachebw.c ./../common/perf_counter_markers.c
+#	$(CC) $(CFLAGS) ./../common/perf_counter_markers.c cachebw.c -o cachebw.exe
+
+cachebw.exe: cachebw.c
+	$(CC) $(CFLAGS) cachebw.c -o cachebw.exe
 
 clean:
 	rm -f cachebw.exe *.o
