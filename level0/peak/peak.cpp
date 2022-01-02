@@ -268,7 +268,7 @@ int main(int argc, char* argv[]) {
   l_flops = 1.0*8.0*(100.0*100.0)*(100.0*100.0);
 #endif
 #ifdef BENCH_SLMSSE
-  l_flops = 4.0*15.0*(100.0*100.0)*(100.0*100.0);
+  l_flops = 4.0*16.0*(100.0*100.0)*(100.0*100.0);
 #endif
 #ifdef BENCH_SSE
   l_flops = 4.0*16.0*(100.0*100.0)*(100.0*100.0);
