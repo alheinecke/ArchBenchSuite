@@ -79,6 +79,7 @@
 #define USE_CLDEMOTE
 #endif
 
+
 #if defined(USE_CORE_PERF_SNP) || defined(USE_CORE_PERF_L2IN) || defined(USE_CORE_PERF_IPC) || defined(USE_UNCORE_PERF_DRAM_BW) || defined(USE_UNCORE_PERF_LLC_VICTIMS) || defined(USE_UNCORE_PERF_CHA_UTIL) || defined(USE_UNCORE_PREF_AK_UTIL) || defined(USE_UNCORE_PREF_IV_UTIL)
 #  include "../common/perf_counter_markers.h"
 #endif
@@ -179,8 +180,47 @@ void read_buffer( char* i_buffer, size_t i_length ) {
                        "cmpq $0, %%r9\n\t"
                        "jg 1b\n\t"
                        : : "m"(i_buffer), "r"(i_length) : "r8","r9","xmm0","xmm1","xmm2","xmm3","xmm4","xmm5","xmm6","xmm7","xmm8","xmm9","xmm10","xmm11","xmm12","xmm13","xmm14","xmm15");
+#elif __ARM_NEON
+  __asm__ __volatile__("mov x0, %0\n\t"
+                       "mov x1, %1\n\t"
+                       "1:\n\t"
+                       "ld1  {v0.2d}, [x0],16\n\t"
+                       "ld1  {v1.2d}, [x0],16\n\t"
+                       "ld1  {v2.2d}, [x0],16\n\t"
+                       "ld1  {v3.2d}, [x0],16\n\t"
+                       "ld1  {v4.2d}, [x0],16\n\t"
+                       "ld1  {v5.2d}, [x0],16\n\t"
+                       "ld1  {v6.2d}, [x0],16\n\t"
+                       "ld1  {v7.2d}, [x0],16\n\t"
+                       "ld1  {v8.2d}, [x0],16\n\t"
+                       "ld1  {v9.2d}, [x0],16\n\t"
+                       "ld1 {v10.2d}, [x0],16\n\t"
+                       "ld1 {v11.2d}, [x0],16\n\t"
+                       "ld1 {v12.2d}, [x0],16\n\t"
+                       "ld1 {v13.2d}, [x0],16\n\t"
+                       "ld1 {v14.2d}, [x0],16\n\t"
+                       "ld1 {v15.2d}, [x0],16\n\t"
+                       "ld1 {v16.2d}, [x0],16\n\t"
+                       "ld1 {v17.2d}, [x0],16\n\t"
+                       "ld1 {v18.2d}, [x0],16\n\t"
+                       "ld1 {v19.2d}, [x0],16\n\t"
+                       "ld1 {v20.2d}, [x0],16\n\t"
+                       "ld1 {v21.2d}, [x0],16\n\t"
+                       "ld1 {v22.2d}, [x0],16\n\t"
+                       "ld1 {v23.2d}, [x0],16\n\t"
+                       "ld1 {v24.2d}, [x0],16\n\t"
+                       "ld1 {v25.2d}, [x0],16\n\t"
+                       "ld1 {v26.2d}, [x0],16\n\t"
+                       "ld1 {v27.2d}, [x0],16\n\t"
+                       "ld1 {v28.2d}, [x0],16\n\t"
+                       "ld1 {v29.2d}, [x0],16\n\t"
+                       "ld1 {v30.2d}, [x0],16\n\t"
+                       "ld1 {v31.2d}, [x0],16\n\t"
+                       "sub x1, x1, #512\n\t"
+                       "cbnz x1, 1b\n\t"
+                       : : "r" (i_buffer), "r" (i_length) : "x0","x1","v0","v1","v2","v4","v5","v6","v7","v8","v9","v10","v11","v12","v13","v14","v15","v16","v17","v18","v19","v20","v21","v22","v23","v24","v25","v26","v27","v28","v29","v30","v31"); 
 #else
-#error need at least SSE2
+#error need at least x86 SSE2 or ARM NEON
 #endif
 } 
 
@@ -308,12 +348,52 @@ void read_cldemote_buffer( char* i_buffer, size_t i_length ) {
                        "cmpq $0, %%r9\n\t"
                        "jg 1b\n\t"
                        : : "m"(i_buffer), "r"(i_length) : "r8","r9","xmm0","xmm1","xmm2","xmm3","xmm4","xmm5","xmm6","xmm7","xmm8","xmm9","xmm10","xmm11","xmm12","xmm13","xmm14","xmm15");
+#elif __ARM_NEON
+  __asm__ __volatile__("mov x0, %0\n\t"
+                       "mov x1, %1\n\t"
+                       "1:\n\t"
+                       "ld1  {v0.2d}, [x0],16\n\t"
+                       "ld1  {v1.2d}, [x0],16\n\t"
+                       "ld1  {v2.2d}, [x0],16\n\t"
+                       "ld1  {v3.2d}, [x0],16\n\t"
+                       "ld1  {v4.2d}, [x0],16\n\t"
+                       "ld1  {v5.2d}, [x0],16\n\t"
+                       "ld1  {v6.2d}, [x0],16\n\t"
+                       "ld1  {v7.2d}, [x0],16\n\t"
+                       "ld1  {v8.2d}, [x0],16\n\t"
+                       "ld1  {v9.2d}, [x0],16\n\t"
+                       "ld1 {v10.2d}, [x0],16\n\t"
+                       "ld1 {v11.2d}, [x0],16\n\t"
+                       "ld1 {v12.2d}, [x0],16\n\t"
+                       "ld1 {v13.2d}, [x0],16\n\t"
+                       "ld1 {v14.2d}, [x0],16\n\t"
+                       "ld1 {v15.2d}, [x0],16\n\t"
+                       "ld1 {v16.2d}, [x0],16\n\t"
+                       "ld1 {v17.2d}, [x0],16\n\t"
+                       "ld1 {v18.2d}, [x0],16\n\t"
+                       "ld1 {v19.2d}, [x0],16\n\t"
+                       "ld1 {v20.2d}, [x0],16\n\t"
+                       "ld1 {v21.2d}, [x0],16\n\t"
+                       "ld1 {v22.2d}, [x0],16\n\t"
+                       "ld1 {v23.2d}, [x0],16\n\t"
+                       "ld1 {v24.2d}, [x0],16\n\t"
+                       "ld1 {v25.2d}, [x0],16\n\t"
+                       "ld1 {v26.2d}, [x0],16\n\t"
+                       "ld1 {v27.2d}, [x0],16\n\t"
+                       "ld1 {v28.2d}, [x0],16\n\t"
+                       "ld1 {v29.2d}, [x0],16\n\t"
+                       "ld1 {v30.2d}, [x0],16\n\t"
+                       "ld1 {v31.2d}, [x0],16\n\t"
+                       "sub x1, x1, #512\n\t"
+                       "cbnz x1, 1b\n\t"
+                       : : "r" (i_buffer), "r" (i_length) : "x0","x1","v0","v1","v2","v4","v5","v6","v7","v8","v9","v10","v11","v12","v13","v14","v15","v16","v17","v18","v19","v20","v21","v22","v23","v24","v25","v26","v27","v28","v29","v30","v31"); 
 #else
-#error need at least SSE2
+#error need at least x86 SSE2 or ARM NEON
 #endif
 } 
 
 void clflush_buffer( char* i_buffer, size_t i_length ) {
+#if __SSE2__
   __asm__ __volatile__("movq %0, %%r8\n\t"
                        "movq %1, %%r9\n\t"
                        "1:\n\t"
@@ -354,6 +434,7 @@ void clflush_buffer( char* i_buffer, size_t i_length ) {
                        "cmpq $0, %%r9\n\t"
                        "jg 1b\n\t"
                        : : "m"(i_buffer), "r"(i_length) : "r8","r9");
+#endif
 } 
 
 int main(int argc, char* argv[]) {
@@ -445,8 +526,10 @@ int main(int argc, char* argv[]) {
   printf("using AVX\n");
 #elif __SSE2__
   printf("using SSE2\n");
+#elif __ARM_NEON
+  printf("using Neon\n");
 #else
-#error need at least SSE2
+#error need at least SSE2 or NEON
 #endif
 
   /* allocating data */

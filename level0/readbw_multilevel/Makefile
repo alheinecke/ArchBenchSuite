@@ -28,12 +28,13 @@
 #############################################################################
 
 CC = gcc
-CFLAGS = -O2 -fopenmp -msse3 -fstrict-aliasing
-CFLAGS = -O2 -fopenmp -mavx2 -fstrict-aliasing
-CFLAGS = -O2 -fopenmp -mfma -mavx512f -mavx512cd -mavx512dq -mavx512bw -mavx512vl -fstrict-aliasing
-CC = icc
-CFLAGS = -O3 -mavx2 -qopenmp -qopenmp-link=static
-CFLAGS = -O3 -xCOMMON-AVX512 -qopenmp -qopenmp-link=static
+CFLAGS = -O2 -fopenmp -march=armv8-a -fstrict-aliasing
+#CFLAGS = -O2 -fopenmp -msse3 -fstrict-aliasing
+#CFLAGS = -O2 -fopenmp -mavx2 -fstrict-aliasing
+#CFLAGS = -O2 -fopenmp -mfma -mavx512f -mavx512cd -mavx512dq -mavx512bw -mavx512vl -fstrict-aliasing
+#CC = icc
+#CFLAGS = -O3 -mavx2 -qopenmp -qopenmp-link=static
+#CFLAGS = -O3 -xCOMMON-AVX512 -qopenmp -qopenmp-link=static
 
 all: readbw_multilevel.exe
 
