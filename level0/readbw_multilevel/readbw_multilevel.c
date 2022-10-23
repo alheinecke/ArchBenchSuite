@@ -27,6 +27,21 @@
 ** SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.              **
 ******************************************************************************/
 
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <float.h>
+#include <sys/time.h>
+#if defined(_OPENMP)
+#include <omp.h>
+#endif
+
+#define MY_MIN(A,B) (((A)<(B))?(A):(B))
+
+#ifdef __ARM_FEATURE_SVE
+#define __SVE256__
+#endif
+
 #if 0
 #define USE_CORE_PERF_SNP
 #endif
@@ -51,17 +66,6 @@
 #if 0
 #define USE_UNCORE_PREF_IV_UTIL
 #endif
-
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <float.h>
-#include <sys/time.h>
-#if defined(_OPENMP)
-#include <omp.h>
-#endif
-
-#define MY_MIN(A,B) (((A)<(B))?(A):(B))
 
 #if 0
 #define USE_ROTATION_SCHEME
@@ -180,6 +184,82 @@ void read_buffer( char* i_buffer, size_t i_length ) {
                        "cmpq $0, %%r9\n\t"
                        "jg 1b\n\t"
                        : : "m"(i_buffer), "r"(i_length) : "r8","r9","xmm0","xmm1","xmm2","xmm3","xmm4","xmm5","xmm6","xmm7","xmm8","xmm9","xmm10","xmm11","xmm12","xmm13","xmm14","xmm15");
+#elif __ARM_FEATURE_SVE
+#warning compiling for SVE256
+#ifdef __SVE256__
+  __asm__ __volatile__("mov x0, %0\n\t"
+                       "mov x1, %1\n\t"
+                       "1:\n\t"
+                       "ldr  z0, [x0]\n\t"
+                       "add x0, x0, 32\n\t"
+                       "ldr  z1, [x0]\n\t"
+                       "add x0, x0, 32\n\t"
+                       "ldr  z2, [x0]\n\t"
+                       "add x0, x0, 32\n\t"
+                       "ldr  z3, [x0]\n\t"
+                       "add x0, x0, 32\n\t"
+                       "ldr  z4, [x0]\n\t"
+                       "add x0, x0, 32\n\t"
+                       "ldr  z5, [x0]\n\t"
+                       "add x0, x0, 32\n\t"
+                       "ldr  z6, [x0]\n\t"
+                       "add x0, x0, 32\n\t"
+                       "ldr  z7, [x0]\n\t"
+                       "add x0, x0, 32\n\t"
+                       "ldr  z8, [x0]\n\t"
+                       "add x0, x0, 32\n\t"
+                       "ldr  z9, [x0]\n\t"
+                       "add x0, x0, 32\n\t"
+                       "ldr z10, [x0]\n\t"
+                       "add x0, x0, 32\n\t"
+                       "ldr z11, [x0]\n\t"
+                       "add x0, x0, 32\n\t"
+                       "ldr z12, [x0]\n\t"
+                       "add x0, x0, 32\n\t"
+                       "ldr z13, [x0]\n\t"
+                       "add x0, x0, 32\n\t"
+                       "ldr z14, [x0]\n\t"
+                       "add x0, x0, 32\n\t"
+                       "ldr z15, [x0]\n\t"
+                       "add x0, x0, 32\n\t"
+                       "ldr z16, [x0]\n\t"
+                       "add x0, x0, 32\n\t"
+                       "ldr z17, [x0]\n\t"
+                       "add x0, x0, 32\n\t"
+                       "ldr z18, [x0]\n\t"
+                       "add x0, x0, 32\n\t"
+                       "ldr z19, [x0]\n\t"
+                       "add x0, x0, 32\n\t"
+                       "ldr z20, [x0]\n\t"
+                       "add x0, x0, 32\n\t"
+                       "ldr z21, [x0]\n\t"
+                       "add x0, x0, 32\n\t"
+                       "ldr z22, [x0]\n\t"
+                       "add x0, x0, 32\n\t"
+                       "ldr z23, [x0]\n\t"
+                       "add x0, x0, 32\n\t"
+                       "ldr z24, [x0]\n\t"
+                       "add x0, x0, 32\n\t"
+                       "ldr z25, [x0]\n\t"
+                       "add x0, x0, 32\n\t"
+                       "ldr z26, [x0]\n\t"
+                       "add x0, x0, 32\n\t"
+                       "ldr z27, [x0]\n\t"
+                       "add x0, x0, 32\n\t"
+                       "ldr z28, [x0]\n\t"
+                       "add x0, x0, 32\n\t"
+                       "ldr z29, [x0]\n\t"
+                       "add x0, x0, 32\n\t"
+                       "ldr z30, [x0]\n\t"
+                       "add x0, x0, 32\n\t"
+                       "ldr z31, [x0]\n\t"
+                       "add x0, x0, 32\n\t"
+                       "sub x1, x1, #1024\n\t"
+                       "cbnz x1, 1b\n\t"
+                       : : "r" (i_buffer), "r" (i_length) : "x0","x1","v0","v1","v2","v4","v5","v6","v7","v8","v9","v10","v11","v12","v13","v14","v15","v16","v17","v18","v19","v20","v21","v22","v23","v24","v25","v26","v27","v28","v29","v30","v31"); 
+#else
+#error only SVE256 is supported
+#endif
 #elif __ARM_NEON
   __asm__ __volatile__("mov x0, %0\n\t"
                        "mov x1, %1\n\t"
@@ -348,6 +428,82 @@ void read_cldemote_buffer( char* i_buffer, size_t i_length ) {
                        "cmpq $0, %%r9\n\t"
                        "jg 1b\n\t"
                        : : "m"(i_buffer), "r"(i_length) : "r8","r9","xmm0","xmm1","xmm2","xmm3","xmm4","xmm5","xmm6","xmm7","xmm8","xmm9","xmm10","xmm11","xmm12","xmm13","xmm14","xmm15");
+#elif __ARM_FEATURE_SVE
+#warning compiling for SVE256
+#ifdef __SVE256__
+  __asm__ __volatile__("mov x0, %0\n\t"
+                       "mov x1, %1\n\t"
+                       "1:\n\t"
+                       "ldr  z0, [x0]\n\t"
+                       "add x0, x0, 32\n\t"
+                       "ldr  z1, [x0]\n\t"
+                       "add x0, x0, 32\n\t"
+                       "ldr  z2, [x0]\n\t"
+                       "add x0, x0, 32\n\t"
+                       "ldr  z3, [x0]\n\t"
+                       "add x0, x0, 32\n\t"
+                       "ldr  z4, [x0]\n\t"
+                       "add x0, x0, 32\n\t"
+                       "ldr  z5, [x0]\n\t"
+                       "add x0, x0, 32\n\t"
+                       "ldr  z6, [x0]\n\t"
+                       "add x0, x0, 32\n\t"
+                       "ldr  z7, [x0]\n\t"
+                       "add x0, x0, 32\n\t"
+                       "ldr  z8, [x0]\n\t"
+                       "add x0, x0, 32\n\t"
+                       "ldr  z9, [x0]\n\t"
+                       "add x0, x0, 32\n\t"
+                       "ldr z10, [x0]\n\t"
+                       "add x0, x0, 32\n\t"
+                       "ldr z11, [x0]\n\t"
+                       "add x0, x0, 32\n\t"
+                       "ldr z12, [x0]\n\t"
+                       "add x0, x0, 32\n\t"
+                       "ldr z13, [x0]\n\t"
+                       "add x0, x0, 32\n\t"
+                       "ldr z14, [x0]\n\t"
+                       "add x0, x0, 32\n\t"
+                       "ldr z15, [x0]\n\t"
+                       "add x0, x0, 32\n\t"
+                       "ldr z16, [x0]\n\t"
+                       "add x0, x0, 32\n\t"
+                       "ldr z17, [x0]\n\t"
+                       "add x0, x0, 32\n\t"
+                       "ldr z18, [x0]\n\t"
+                       "add x0, x0, 32\n\t"
+                       "ldr z19, [x0]\n\t"
+                       "add x0, x0, 32\n\t"
+                       "ldr z20, [x0]\n\t"
+                       "add x0, x0, 32\n\t"
+                       "ldr z21, [x0]\n\t"
+                       "add x0, x0, 32\n\t"
+                       "ldr z22, [x0]\n\t"
+                       "add x0, x0, 32\n\t"
+                       "ldr z23, [x0]\n\t"
+                       "add x0, x0, 32\n\t"
+                       "ldr z24, [x0]\n\t"
+                       "add x0, x0, 32\n\t"
+                       "ldr z25, [x0]\n\t"
+                       "add x0, x0, 32\n\t"
+                       "ldr z26, [x0]\n\t"
+                       "add x0, x0, 32\n\t"
+                       "ldr z27, [x0]\n\t"
+                       "add x0, x0, 32\n\t"
+                       "ldr z28, [x0]\n\t"
+                       "add x0, x0, 32\n\t"
+                       "ldr z29, [x0]\n\t"
+                       "add x0, x0, 32\n\t"
+                       "ldr z30, [x0]\n\t"
+                       "add x0, x0, 32\n\t"
+                       "ldr z31, [x0]\n\t"
+                       "add x0, x0, 32\n\t"
+                       "sub x1, x1, #1024\n\t"
+                       "cbnz x1, 1b\n\t"
+                       : : "r" (i_buffer), "r" (i_length) : "x0","x1","v0","v1","v2","v4","v5","v6","v7","v8","v9","v10","v11","v12","v13","v14","v15","v16","v17","v18","v19","v20","v21","v22","v23","v24","v25","v26","v27","v28","v29","v30","v31"); 
+#else
+#error only SVE256 is supported
+#endif
 #elif __ARM_NEON
   __asm__ __volatile__("mov x0, %0\n\t"
                        "mov x1, %1\n\t"
