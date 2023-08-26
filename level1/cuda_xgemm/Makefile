@@ -29,7 +29,7 @@
 
 CC=g++
 CFLAGS=-O3 -msse3
-LDFLAGS=-lcublas -lcudart
+LDFLAGS=-lcublas -lcublasLt -lcudart
 
 default : cublas_test.cpp
 	$(CC) $(CFLAGS) $(LDFLAGS) -o CuBlasTEST cublas_test.cpp
