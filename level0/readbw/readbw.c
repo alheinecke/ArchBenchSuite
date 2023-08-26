@@ -37,6 +37,9 @@
 #define USE_CORE_PERF_COUNTERS
 #endif
 
+#if 0
+#include <immintrin.h>
+#endif
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/time.h>
@@ -50,11 +53,11 @@
 
 #ifdef NTIMES
 #if NTIMES<=1
-#   define NTIMES	1000
+#   define NTIMES	10000
 #endif
 #endif
 #ifndef NTIMES
-#   define NTIMES	1000
+#   define NTIMES	10000
 #endif
 
 # ifndef MIN
@@ -70,6 +73,10 @@ inline double sec(struct timeval start, struct timeval end) {
 
 int main(int argc, char* argv[]) {
   double* l_data;
+#if 0
+  double* l_data2;
+  double* l_data3;
+#endif
   size_t l_n = 0;
   size_t l_i = 0;
   double* l_times;
@@ -103,15 +110,30 @@ int main(int argc, char* argv[]) {
 #endif
 
   l_sum = ((l_sum*l_sum) + l_sum)/2;
-  posix_memalign((void**)&l_data, 4096, ((size_t)STREAM_ARRAY_SIZE)*sizeof(double));
+#if 0
+  l_sum *= 2;
+#endif
+  posix_memalign((void**)&l_data,  2097152, ((size_t)STREAM_ARRAY_SIZE)*sizeof(double));
+#if 0
+  posix_memalign((void**)&l_data2, 2097152, ((size_t)STREAM_ARRAY_SIZE)*sizeof(double));
+  posix_memalign((void**)&l_data3, 2097152, ((size_t)STREAM_ARRAY_SIZE)*sizeof(double));
+#endif
   l_times = (double*)malloc(sizeof(double)*NTIMES);
 
+#if 1
   printf("READ BW Test Size MiB: %f\n", (l_size/(1024.0*1024.0)));
-  
+#else
+  printf("READ BW Test Size MiB: %f\n", (l_size*2/(1024.0*1024.0)));
+#endif
+
   // init data
   #pragma omp parallel for
   for ( l_n = 0; l_n < STREAM_ARRAY_SIZE; l_n++ ) {
-    l_data[l_n] = (double)l_n;
+    l_data[l_n] = (float)l_n;
+#if 0
+    l_data2[l_n] = (float)l_n;
+    l_data3[l_n] = (float)l_n;
+#endif
   }
 
 #ifdef USE_UNCORE_PERF_COUNTERS
@@ -128,11 +150,31 @@ int main(int argc, char* argv[]) {
     #pragma omp parallel 
     {
       double l_res = 0.0;
-      #pragma omp for
+#if 0
+      double l_res2 = 0.0;
+      __m512d l_acc = _mm512_setzero_pd();
+      __m512d l_acc2 = _mm512_setzero_pd();
+      __m512d l_acc3 = _mm512_setzero_pd();
+#endif
+      #pragma omp for nowait
       for ( l_n = 0; l_n < STREAM_ARRAY_SIZE; l_n++ ) {
-        l_res += l_data[l_n];
+#if 0
+	l_acc = _mm512_add_pd( l_acc, _mm512_load_pd( l_data + l_n ));
+	l_acc2 = _mm512_add_pd( l_acc2, _mm512_load_pd( l_data2 + l_n ));
+	l_acc3 = _mm512_add_pd( l_acc3, _mm512_load_pd( l_data3 + l_n ));
+	_mm_prefetch( l_data + ((l_n + 2048) % STREAM_ARRAY_SIZE), _MM_HINT_T1 );
+#endif
+	l_res += l_data[l_n];
+#if 0
+	l_res2 += l_data2[l_n];
+#endif
       }
-      
+#if 0
+      l_res += l_res2;
+      l_res = _mm512_reduce_add_pd( l_acc );
+      l_res += _mm512_reduce_add_pd( l_acc2 );
+      l_res += _mm512_reduce_add_pd( l_acc3 );
+#endif
       #pragma omp atomic
       l_result += l_res;
     }
@@ -162,9 +204,15 @@ int main(int argc, char* argv[]) {
   l_avgTime /= (double)NTIMES;
   
   // output
+#if 1
   printf("AVG GiB/s  (calculated): %f\n", (l_size/(1024.0*1024.0*1024.0))/l_avgTime);
   printf("MAX GiB/s  (calculated): %f\n", (l_size/(1024.0*1024.0*1024.0))/l_minTime);
   printf("MIN GiB/s  (calculated): %f\n", (l_size/(1024.0*1024.0*1024.0))/l_maxTime);
+#else
+  printf("AVG GiB/s  (calculated): %f\n", (l_size*2.0/(1024.0*1024.0*1024.0))/l_avgTime);
+  printf("MAX GiB/s  (calculated): %f\n", (l_size*2.0/(1024.0*1024.0*1024.0))/l_minTime);
+  printf("MIN GiB/s  (calculated): %f\n", (l_size*2.0/(1024.0*1024.0*1024.0))/l_maxTime);
+#endif
 #ifdef USE_UNCORE_PERF_COUNTERS
 #ifdef USE_DRAM_COUNTERS
   get_cas_ddr_bw_uncore_ctrs( &s, l_maxTime, &bw_min );

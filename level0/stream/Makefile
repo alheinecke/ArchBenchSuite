@@ -50,7 +50,7 @@ EXE=stream_avx2
 endif
 
 ifeq ($(TARGET), avx512)
-CC=icc
+#CC=icc
 CC=gcc
 #CFLAGS=-O2 -xCOMMON-AVX512 -qopenmp -DBENCH_AVX512 -DNTIMES=100 -DSTREAM_ARRAY_SIZE=73728000 -fstrict-aliasing -opt-streaming-cache-evict=0 -opt-streaming-stores always -opt-prefetch-distance=64,8 -static-intel
 #CFLAGS=-O2 -xCOMMON-AVX512 -qopenmp -DBENCH_AVX512 -DNTIMES=1000 -DSTREAM_ARRAY_SIZE=43008000 -fstrict-aliasing -opt-streaming-cache-evict=0 -opt-streaming-stores always -opt-prefetch-distance=64,8 -static-intel
@@ -59,6 +59,7 @@ CC=gcc
 #CFLAGS=-O2 -xCOMMON-AVX512 -qopenmp -DBENCH_AVX512 -DNTIMES=10000 -DSTREAM_ARRAY_SIZE=2752512 -fstrict-aliasing -opt-streaming-cache-evict=0 -opt-streaming-stores never -opt-prefetch-distance=64,8 -static-intel
 CFLAGS=-O2 -xCOMMON-AVX512 -qopenmp -DBENCH_AVX512 -DNTIMES=1000 -DSTREAM_ARRAY_SIZE=64512000 -fstrict-aliasing -qopt-streaming-cache-evict=0 -qopt-streaming-stores always -qopt-prefetch-distance=64,8 -static-intel
 CFLAGS=-O2 -mavx512f -mavx512cd -mavx512bw -mavx512dq -fopenmp -DBENCH_AVX512 -DNTIMES=10 -DSTREAM_ARRAY_SIZE=64512000 -fstrict-aliasing
+#CFLAGS=-O2 -xCOMMON-AVX512 -qopenmp -DBENCH_AVX512 -DNTIMES=1000 -DSTREAM_ARRAY_SIZE=64512000 -fstrict-aliasing -qopt-streaming-cache-evict=0 -qopt-streaming-stores always -qopt-prefetch=5 -qopt-prefetch-distance=448,32 -static-intel
 EXE=stream_avx512
 endif
 
