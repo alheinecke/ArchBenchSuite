@@ -28,7 +28,7 @@
 #############################################################################
 
 CC = gcc
-TARGET=sse
+TARGET=rv64
 
 ifeq ($(TARGET), sse)
 CFLAGS=-O2 -fopenmp -DBENCH_SSE -DNTIMES=100 -DSTREAM_ARRAY_SIZE=73728000 -msse3 -fstrict-aliasing
@@ -67,6 +67,11 @@ ifeq ($(TARGET), armv8)
 CFLAGS=-O2 -fopenmp -DBENCH_ARMV8 -DNTIMES=100 -DSTREAM_ARRAY_SIZE=73728000 -march=armv8-a -fstrict-aliasing
 EXE=stream_armv8
 endif 
+
+ifeq ($(TARGET), rv64)
+CFLAGS=-O2 -DBENCH_RV64 -DNTIMES=100 -DSTREAM_ARRAY_SIZE=73728000 -march=rv64imfdv -fopenmp 
+EXE=stream_rv64
+endif
 
 ifeq ($(TARGET), power8)
 CFLAGS=-O2 -fopenmp -DBENCH_POWER8 -DNTIMES=100 -DSTREAM_ARRAY_SIZE=73728000 -mcpu=power8 -mvsx -mdirect-move -mpower8-fusion -mpower8-vector -fstrict-aliasing

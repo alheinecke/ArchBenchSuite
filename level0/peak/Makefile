@@ -28,7 +28,7 @@
 #############################################################################
 
 CC=g++
-TARGET=sse
+TARGET=rv64
 OPENMP=0
 CFLAGS:=-O2 -Wall
 EXE=""
@@ -83,6 +83,11 @@ endif
 ifeq ($(TARGET), power8)
 CFLAGS:=$(CFLAGS) -DBENCH_POWER8
 EXE=peak_power8
+endif 
+
+ifeq ($(TARGET), rv64)
+CFLAGS:=$(CFLAGS) -DBENCH_RV64 -march=rv64imfdv
+EXE=peak_rv64
 endif 
 
 ifeq ($(OPENMP), 1)

@@ -70,6 +70,11 @@
 #include "vsx_double.hpp"
 #endif
 
+#ifdef BENCH_RV64
+#include "rv64_float.hpp"
+#include "rv64_double.hpp"
+#endif
+
 inline double sec(struct timeval start, struct timeval end) {
   return ((double)(((end.tv_sec * 1000000 + end.tv_usec) - (start.tv_sec * 1000000 + start.tv_usec)))) / 1.0e6;
 }
@@ -123,8 +128,12 @@ int main(int argc, char* argv[]) {
 #ifdef BENCH_POWER8
   std::cout << "Running on a POWER8" << std::endl;
 #endif
+#ifdef BENCH_RV64
+  std::cout << "Running on a RV64" << std::endl;
+#endif
   std::cout << "Running with " << static_cast<int>(l_numberOfThreads) << " thread(s)" << std::endl;
 
+#if 0
   // single precision QFMA 
   gettimeofday(&l_startTime, NULL);
 #ifdef _OPENMP
@@ -138,9 +147,12 @@ int main(int argc, char* argv[]) {
   l_flops = 0.0;
 #ifdef BENCH_AVX512_QFMA
   l_flops = 4.0*32.0*28.0*(100.0*100.0)*(100.0*100.0);
+#else
+  l_flops = 2.0*32.0*28.0*(100.0*100.0)*(100.0*100.0);
 #endif
   l_flops *= l_numberOfThreads;
   std::cout << "GFLOPS float QFMA  " << (l_flops/1e9)/l_time << std::endl;
+#endif
 
   // single precision FMA 
   gettimeofday(&l_startTime, NULL);
@@ -163,6 +175,9 @@ int main(int argc, char* argv[]) {
   l_flops = 8.0*32.0*(100.0*100.0)*(100.0*100.0);
 #endif
 #ifdef BENCH_POWER8
+  l_flops = 8.0*64.0*(100.0*100.0)*(100.0*100.0);
+#endif
+#ifdef BENCH_RV64
   l_flops = 8.0*64.0*(100.0*100.0)*(100.0*100.0);
 #endif
   l_flops *= l_numberOfThreads;
@@ -206,6 +221,9 @@ int main(int argc, char* argv[]) {
 #ifdef BENCH_POWER8
   l_flops = 4.0*64.0*(100.0*100.0)*(100.0*100.0);
 #endif
+#ifdef BENCH_RV64
+  l_flops = 4.0*64.0*(100.0*100.0)*(100.0*100.0);
+#endif
   l_flops *= l_numberOfThreads;
   std::cout << "GFLOPS float  MUL  " << (l_flops/1e9)/l_time << std::endl;
 
@@ -215,7 +233,7 @@ int main(int argc, char* argv[]) {
   #pragma omp parallel
 #endif
   {
-    gflops_float_add(l_floatDataAsm); 
+    gflops_float_fadd(l_floatDataAsm); 
   }
   gettimeofday(&l_endTime, NULL);
   l_time = sec(l_startTime, l_endTime);
@@ -245,6 +263,9 @@ int main(int argc, char* argv[]) {
   l_flops = 4.0*32.0*(100.0*100.0)*(100.0*100.0);
 #endif
 #ifdef BENCH_POWER8
+  l_flops = 4.0*64.0*(100.0*100.0)*(100.0*100.0);
+#endif
+#ifdef BENCH_RV64
   l_flops = 4.0*64.0*(100.0*100.0)*(100.0*100.0);
 #endif
   l_flops *= l_numberOfThreads;
@@ -288,6 +309,9 @@ int main(int argc, char* argv[]) {
 #ifdef BENCH_POWER8
   l_flops = 4.0*64.0*(100.0*100.0)*(100.0*100.0);
 #endif
+#ifdef BENCH_RV64
+  l_flops = 4.0*64.0*(100.0*100.0)*(100.0*100.0);
+#endif
   l_flops *= l_numberOfThreads;
   std::cout << "GFLOPS float  MADD " << (l_flops/1e9)/l_time << std::endl;
   
@@ -312,6 +336,9 @@ int main(int argc, char* argv[]) {
   l_flops = 4.0*32.0*(100.0*100.0)*(100.0*100.0);
 #endif
 #ifdef BENCH_POWER8
+  l_flops = 4.0*64.0*(100.0*100.0)*(100.0*100.0);
+#endif
+#ifdef BENCH_RV64
   l_flops = 4.0*64.0*(100.0*100.0)*(100.0*100.0);
 #endif
   l_flops *= l_numberOfThreads;
@@ -349,6 +376,9 @@ int main(int argc, char* argv[]) {
 #ifdef BENCH_POWER8
   l_flops = 2.0*64.0*(100.0*100.0)*(100.0*100.0);
 #endif
+#ifdef BENCH_RV64
+  l_flops = 2.0*64.0*(100.0*100.0)*(100.0*100.0);
+#endif
   l_flops *= l_numberOfThreads;
   std::cout << "GFLOPS double MUL  " << (l_flops/1e9)/l_time << std::endl;
 
@@ -358,7 +388,7 @@ int main(int argc, char* argv[]) {
   #pragma omp parallel
 #endif
   {
-    gflops_double_add(l_doubleDataAsm); 
+    gflops_double_fadd(l_doubleDataAsm); 
   }
   gettimeofday(&l_endTime, NULL);
   l_time = sec(l_startTime, l_endTime);
@@ -383,6 +413,9 @@ int main(int argc, char* argv[]) {
 #endif
 #ifdef BENCH_POWER8
   l_flops = 2.0*64.0*(100.0*100.0)*(100.0*100.0);
+#endif
+#ifdef BENCH_RV64
+  l_flops = 2.0*32.0*(100.0*100.0)*(100.0*100.0);
 #endif
   l_flops *= l_numberOfThreads;
   std::cout << "GFLOPS double ADD  " << (l_flops/1e9)/l_time << std::endl;
@@ -417,6 +450,9 @@ int main(int argc, char* argv[]) {
   l_flops = 2.0*32.0*(100.0*100.0)*(100.0*100.0);
 #endif
 #ifdef BENCH_POWER8
+  l_flops = 2.0*64.0*(100.0*100.0)*(100.0*100.0);
+#endif
+#ifdef BENCH_RV64
   l_flops = 2.0*64.0*(100.0*100.0)*(100.0*100.0);
 #endif
   l_flops *= l_numberOfThreads;
