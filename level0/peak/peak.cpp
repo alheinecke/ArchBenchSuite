@@ -86,10 +86,10 @@ int main(int argc, char* argv[]) {
   double l_time, l_flops;
   double l_numberOfThreads = 1;
 
-  for (unsigned int i = 0; i < 8; i++) { 
+  for (unsigned int i = 0; i < 8; i++) {
     l_doubleDataAsm[i] = drand48();
   }
-  for (unsigned int i = 0; i < 16; i++) { 
+  for (unsigned int i = 0; i < 16; i++) {
     l_floatDataAsm[i] = static_cast<float>(drand48());
   }
 
@@ -134,13 +134,13 @@ int main(int argc, char* argv[]) {
   std::cout << "Running with " << static_cast<int>(l_numberOfThreads) << " thread(s)" << std::endl;
 
 #if 0
-  // single precision QFMA 
+  // single precision QFMA
   gettimeofday(&l_startTime, NULL);
 #ifdef _OPENMP
   #pragma omp parallel
 #endif
   {
-    gflops_float_qfma(l_floatDataAsm); 
+    gflops_float_qfma(l_floatDataAsm);
   }
   gettimeofday(&l_endTime, NULL);
   l_time = sec(l_startTime, l_endTime);
@@ -154,13 +154,13 @@ int main(int argc, char* argv[]) {
   std::cout << "GFLOPS float QFMA  " << (l_flops/1e9)/l_time << std::endl;
 #endif
 
-  // single precision FMA 
+  // single precision FMA
   gettimeofday(&l_startTime, NULL);
 #ifdef _OPENMP
   #pragma omp parallel
 #endif
   {
-    gflops_float_fma(l_floatDataAsm); 
+    gflops_float_fma(l_floatDataAsm);
   }
   gettimeofday(&l_endTime, NULL);
   l_time = sec(l_startTime, l_endTime);
@@ -183,13 +183,13 @@ int main(int argc, char* argv[]) {
   l_flops *= l_numberOfThreads;
   std::cout << "GFLOPS float  FMA  " << (l_flops/1e9)/l_time << std::endl;
 
-  // single precision MUL 
+  // single precision MUL
   gettimeofday(&l_startTime, NULL);
 #ifdef _OPENMP
   #pragma omp parallel
 #endif
   {
-    gflops_float_mul(l_floatDataAsm); 
+    gflops_float_mul(l_floatDataAsm);
   }
   gettimeofday(&l_endTime, NULL);
   l_time = sec(l_startTime, l_endTime);
@@ -227,13 +227,13 @@ int main(int argc, char* argv[]) {
   l_flops *= l_numberOfThreads;
   std::cout << "GFLOPS float  MUL  " << (l_flops/1e9)/l_time << std::endl;
 
-  // single precision ADD 
+  // single precision ADD
   gettimeofday(&l_startTime, NULL);
 #ifdef _OPENMP
   #pragma omp parallel
 #endif
   {
-    gflops_float_fadd(l_floatDataAsm); 
+    gflops_float_add(l_floatDataAsm);
   }
   gettimeofday(&l_endTime, NULL);
   l_time = sec(l_startTime, l_endTime);
@@ -271,13 +271,13 @@ int main(int argc, char* argv[]) {
   l_flops *= l_numberOfThreads;
   std::cout << "GFLOPS float  ADD  " << (l_flops/1e9)/l_time << std::endl;
 
-  // single precision MADD 
+  // single precision MADD
   gettimeofday(&l_startTime, NULL);
 #ifdef _OPENMP
   #pragma omp parallel
 #endif
   {
-    gflops_float_madd(l_floatDataAsm); 
+    gflops_float_madd(l_floatDataAsm);
   }
   gettimeofday(&l_endTime, NULL);
   l_time = sec(l_startTime, l_endTime);
@@ -314,14 +314,14 @@ int main(int argc, char* argv[]) {
 #endif
   l_flops *= l_numberOfThreads;
   std::cout << "GFLOPS float  MADD " << (l_flops/1e9)/l_time << std::endl;
-  
-  // double precision FMA 
+
+  // double precision FMA
   gettimeofday(&l_startTime, NULL);
 #ifdef _OPENMP
   #pragma omp parallel
 #endif
   {
-    gflops_double_fma(l_doubleDataAsm); 
+    gflops_double_fma(l_doubleDataAsm);
   }
   gettimeofday(&l_endTime, NULL);
   l_time = sec(l_startTime, l_endTime);
@@ -344,13 +344,13 @@ int main(int argc, char* argv[]) {
   l_flops *= l_numberOfThreads;
   std::cout << "GFLOPS double FMA  " << (l_flops/1e9)/l_time << std::endl;
 
-  // double precision MUL 
+  // double precision MUL
   gettimeofday(&l_startTime, NULL);
 #ifdef _OPENMP
   #pragma omp parallel
 #endif
   {
-    gflops_double_mul(l_doubleDataAsm); 
+    gflops_double_mul(l_doubleDataAsm);
   }
   gettimeofday(&l_endTime, NULL);
   l_time = sec(l_startTime, l_endTime);
@@ -382,13 +382,13 @@ int main(int argc, char* argv[]) {
   l_flops *= l_numberOfThreads;
   std::cout << "GFLOPS double MUL  " << (l_flops/1e9)/l_time << std::endl;
 
-  // double precision ADD 
+  // double precision ADD
   gettimeofday(&l_startTime, NULL);
 #ifdef _OPENMP
   #pragma omp parallel
 #endif
   {
-    gflops_double_fadd(l_doubleDataAsm); 
+    gflops_double_add(l_doubleDataAsm);
   }
   gettimeofday(&l_endTime, NULL);
   l_time = sec(l_startTime, l_endTime);
@@ -420,7 +420,7 @@ int main(int argc, char* argv[]) {
   l_flops *= l_numberOfThreads;
   std::cout << "GFLOPS double ADD  " << (l_flops/1e9)/l_time << std::endl;
 
-  // double precision MADD 
+  // double precision MADD
   gettimeofday(&l_startTime, NULL);
 #ifdef _OPENMP
   #pragma omp parallel

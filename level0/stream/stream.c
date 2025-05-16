@@ -211,8 +211,6 @@ static double	bytes[4] = {
 extern double mysecond();
 extern void checkSTREAMresults();
 
-#define TUNED
-
 #ifdef __SSE3__
 #include <immintrin.h>
 #include <omp.h>
@@ -223,6 +221,9 @@ extern void checkSTREAMresults();
 #define TUNED
 #endif
 #ifdef BENCH_ARMV8
+#define TUNED
+#endif
+#ifdef BENCH_RV64
 #define TUNED
 #endif
 
@@ -888,7 +889,11 @@ void tuned_STREAM_Triad(STREAM_TYPE scalar)
 #endif
 #ifdef BENCH_POWER8
 	  for (j=start; j< start+chunk; j+=2)
-             __riscv_vse64_v_f64m1(&a[j], __riscv_vfmadd_vf_f64m1(__riscv_vle64_v_f64m1(&c[j], gvl), vecscalar, __riscv_vle64_v_f64m1(&b[j]), gvl), gvl);
+            vec_vsx_st(vec_madd(vec_vsx_ld(0, &c[j]), vecscalar, vec_vsx_ld(0, &b[j])), 0, &a[j]);
+#endif
+#ifdef BENCH_RV64
+	  for (j=start; j< start+chunk; j+=2)
+             __riscv_vse64_v_f64m1(&a[j], __riscv_vfmadd_vf_f64m1(__riscv_vle64_v_f64m1(&c[j], gvl), vecscalar, __riscv_vle64_v_f64m1(&b[j], gvl), gvl), gvl);
 #endif
 #ifdef BENCH_ARMV8
         __asm__ __volatile__("mov x0, %0\n\t"  // a

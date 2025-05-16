@@ -28,7 +28,7 @@
 #############################################################################
 
 CC = gcc
-TARGET=rv64
+TARGET=sse
 
 ifeq ($(TARGET), sse)
 CFLAGS=-O2 -fopenmp -DBENCH_SSE -DNTIMES=100 -DSTREAM_ARRAY_SIZE=73728000 -msse3 -fstrict-aliasing
