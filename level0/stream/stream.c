@@ -49,6 +49,11 @@
 # include <sys/time.h>
 # include <unistd.h>
 
+#ifdef BENCH_RV64
+# include <riscv_vector.h>
+# include <omp.h>
+#endif
+
 /*-----------------------------------------------------------------------
  * INSTRUCTIONS:
  *
@@ -218,6 +223,9 @@ extern void checkSTREAMresults();
 #ifdef BENCH_ARMV8
 #define TUNED
 #endif
+#ifdef BENCH_RV64
+#define TUNED
+#endif
 
 #ifdef TUNED
 extern void tuned_STREAM_Copy();
@@ -344,6 +352,7 @@ main()
 	{
 	times[0][k] = mysecond();
 #ifdef TUNED
+        printf("Calling tuned stream copy\n");
         tuned_STREAM_Copy();
 #else
 #pragma omp parallel for
@@ -618,6 +627,12 @@ void tuned_STREAM_Copy()
 	  for (j=start; j< start+chunk; j+=2)
             vec_vsx_st(vec_vsx_ld(0, &a[j]), 0, &c[j]);
 #endif
+#ifdef BENCH_RV64
+    size_t gvl = __riscv_vsetvl_e64m1(16);
+	  for (j=start; j< start+chunk; j+=2){
+            __riscv_vse64_v_f64m1(&c[j], __riscv_vle64_v_f64m1((&a[j]), gvl), gvl);
+    }
+#endif
 #ifdef BENCH_ARMV8
         __asm__ __volatile__("mov x0, %0\n\t"  // a
                              "mov x1, %1\n\t"  // c
@@ -668,6 +683,10 @@ void tuned_STREAM_Scale(STREAM_TYPE scalar)
         __attribute__((aligned(128))) STREAM_TYPE pumped_scalar[2] = {scalar, scalar};
         vector double vecscalar = vec_vsx_ld(0, pumped_scalar);
 #endif
+#ifdef BENCH_RV64
+    size_t gvl = __riscv_vsetvl_e64m1(16);
+    double vecscalar = scalar;
+#endif
 
         #pragma omp parallel
         {
@@ -696,6 +715,10 @@ void tuned_STREAM_Scale(STREAM_TYPE scalar)
 #ifdef BENCH_POWER8    
 	  for (j=start; j< start+chunk; j+=2)
             vec_vsx_st(vec_mul(vecscalar, vec_vsx_ld(0, &c[j])), 0, &b[j]);
+#endif
+#ifdef BENCH_RV64    
+	  for (j=start; j< start+chunk; j+=2)
+            __riscv_vse64_v_f64m1(&b[j], __riscv_vfmul_vf_f64m1(__riscv_vle64_v_f64m1(&c[j], gvl), vecscalar, gvl), gvl);
 #endif
 #ifdef BENCH_ARMV8
         __asm__ __volatile__("mov x0, %0\n\t"  // b
@@ -771,6 +794,12 @@ void tuned_STREAM_Add()
 	  for (j=start; j< start+chunk; j+=2)
             vec_vsx_st(vec_add(vec_vsx_ld(0, &a[j]), vec_vsx_ld(0, &b[j])), 0, &c[j]);
 #endif
+#ifdef BENCH_RV64
+    size_t gvl = __riscv_vsetvl_e64m1(16);
+	  for (j=start; j< start+chunk; j+=2){
+            __riscv_vse64_v_f64m1(&c[j], __riscv_vfadd_vv_f64m1(__riscv_vle64_v_f64m1((&a[j]), gvl), __riscv_vle64_v_f64m1((&b[j]), gvl), gvl), gvl);
+    }
+#endif
 #ifdef BENCH_ARMV8    
         __asm__ __volatile__("mov x0, %0\n\t"  // a
                              "mov x1, %1\n\t"  // b
@@ -831,6 +860,10 @@ void tuned_STREAM_Triad(STREAM_TYPE scalar)
         __attribute__((aligned(128))) STREAM_TYPE pumped_scalar[2] = {scalar, scalar};
         vector double vecscalar = vec_vsx_ld(0, pumped_scalar);
 #endif
+#ifdef BENCH_RV64
+        size_t gvl = __riscv_vsetvl_e64m1(16);
+        double vecscalar = scalar;
+#endif
         #pragma omp parallel
         {
           ssize_t j;
@@ -856,7 +889,11 @@ void tuned_STREAM_Triad(STREAM_TYPE scalar)
 #endif
 #ifdef BENCH_POWER8
 	  for (j=start; j< start+chunk; j+=2)
-             vec_vsx_st(vec_madd(vec_vsx_ld(0, &c[j]), vecscalar, vec_vsx_ld(0, &b[j])), 0, &a[j]);
+            vec_vsx_st(vec_madd(vec_vsx_ld(0, &c[j]), vecscalar, vec_vsx_ld(0, &b[j])), 0, &a[j]);
+#endif
+#ifdef BENCH_RV64
+	  for (j=start; j< start+chunk; j+=2)
+             __riscv_vse64_v_f64m1(&a[j], __riscv_vfmadd_vf_f64m1(__riscv_vle64_v_f64m1(&c[j], gvl), vecscalar, __riscv_vle64_v_f64m1(&b[j], gvl), gvl), gvl);
 #endif
 #ifdef BENCH_ARMV8
         __asm__ __volatile__("mov x0, %0\n\t"  // a
