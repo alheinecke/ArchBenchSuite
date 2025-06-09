@@ -234,6 +234,38 @@ extern void checkSTREAMresults();
 #define TUNED
 #endif
 
+
+#ifdef USE_CUDA_HMM
+#include <cuda.h>
+
+#define CUDA_THREAD_PER_BLOCK 256
+#define TUNED
+__global__ void tuned_STREAM_Copy_cuda(double* d_a, double* d_c);
+__global__ void tuned_STREAM_Scale_cuda(double* d_c, double* d_b);
+__global__ void tuned_STREAM_Add_cuda(double* d_a, double* d_b, double* d_c);
+__global__ void tuned_STREAM_Triad_cuda(double* d_a, double* d_b, double* d_c);
+
+__global__ void tuned_STREAM_Copy_cuda(double* d_a, double* d_c) {
+	int id = blockDim.x * blockIdx.x + threadIdx.x;
+	if(id < STREAM_ARRAY_SIZE) d_c[id] = d_a[id];
+}
+
+__global__ void tuned_STREAM_Scale_cuda(double* d_c, double* d_b) {
+	int id = blockDim.x * blockIdx.x + threadIdx.x;
+	if(id < STREAM_ARRAY_SIZE) d_b[id] = 3.0 * d_c[id];
+}
+
+__global__ void tuned_STREAM_Add_cuda(double* d_a, double* d_b, double* d_c) {
+	int id = blockDim.x * blockIdx.x + threadIdx.x;
+	if(id < STREAM_ARRAY_SIZE) d_c[id] = d_a[id] + d_b[id];
+}
+
+__global__ void tuned_STREAM_Triad_cuda(double* d_a, double* d_b, double* d_c) {
+	int id = blockDim.x * blockIdx.x + threadIdx.x;
+	if(id < STREAM_ARRAY_SIZE) d_a[id] = d_b[id] + 3.0 * d_c[id];
+}
+#endif
+
 #ifdef TUNED
 extern void tuned_STREAM_Copy();
 extern void tuned_STREAM_Scale(STREAM_TYPE scalar);
@@ -298,6 +330,8 @@ main()
 	    printf ("Number of Threads requested = %i\n",k);
         }
     }
+#else
+    k = 1;
 #endif
 
 #ifdef _OPENMP
@@ -359,7 +393,6 @@ main()
 	{
 	times[0][k] = mysecond();
 #ifdef TUNED
-        printf("Calling tuned stream copy\n");
         tuned_STREAM_Copy();
 #else
 #pragma omp parallel for
@@ -607,6 +640,13 @@ void checkSTREAMresults ()
 /* stubs for "tuned" versions of the kernels */
 void tuned_STREAM_Copy()
 {
+#ifdef USE_CUDA_HMM
+	int thr_per_blk = CUDA_THREAD_PER_BLOCK;
+	int blk_in_grid = ceil( float(STREAM_ARRAY_SIZE) / thr_per_blk );
+
+  tuned_STREAM_Copy_cuda<<< blk_in_grid, thr_per_blk >>>(a, c);
+  cudaDeviceSynchronize();
+#else
         #pragma omp parallel
         {
           ssize_t j;
@@ -677,11 +717,18 @@ void tuned_STREAM_Copy()
 #endif
 #endif
         }
-
+#endif
 }
 
 void tuned_STREAM_Scale(STREAM_TYPE scalar)
 {
+#ifdef USE_CUDA_HMM
+	int thr_per_blk = CUDA_THREAD_PER_BLOCK;
+	int blk_in_grid = ceil( float(STREAM_ARRAY_SIZE) / thr_per_blk );
+
+  tuned_STREAM_Scale_cuda<<< blk_in_grid, thr_per_blk >>>(c, b);
+  cudaDeviceSynchronize();
+#else
 #ifdef BENCH_AVX512
         __m512d vecscalar = _mm512_set1_pd(scalar);
 #endif
@@ -771,10 +818,18 @@ void tuned_STREAM_Scale(STREAM_TYPE scalar)
 #endif
 #endif
         }
+#endif
 }
 
 void tuned_STREAM_Add()
 {
+#ifdef USE_CUDA_HMM
+	int thr_per_blk = CUDA_THREAD_PER_BLOCK;
+	int blk_in_grid = ceil( float(STREAM_ARRAY_SIZE) / thr_per_blk );
+
+  tuned_STREAM_Add_cuda<<< blk_in_grid, thr_per_blk >>>(a, b, c);
+  cudaDeviceSynchronize();
+#else
         #pragma omp parallel
         {
           ssize_t j;
@@ -855,10 +910,18 @@ void tuned_STREAM_Add()
 #endif
 #endif
         }
+#endif
 }
 
 void tuned_STREAM_Triad(STREAM_TYPE scalar)
 {
+#ifdef USE_CUDA_HMM
+	int thr_per_blk = CUDA_THREAD_PER_BLOCK;
+	int blk_in_grid = ceil( float(STREAM_ARRAY_SIZE) / thr_per_blk );
+
+  tuned_STREAM_Triad_cuda<<< blk_in_grid, thr_per_blk >>>(a, b, c);
+  cudaDeviceSynchronize();
+#else
 #ifdef BENCH_AVX512
         __m512d vecscalar = _mm512_set1_pd(scalar);
 #endif
@@ -960,6 +1023,7 @@ void tuned_STREAM_Triad(STREAM_TYPE scalar)
 #endif
           
         }
+#endif
 }
 /* end of stubs for the "tuned" versions of the kernels */
 #endif
