@@ -178,7 +178,14 @@
 #define STREAM_TYPE double
 #endif
 
-/*#define USESTACK*/
+#if 0
+#define USESTACK
+#endif
+
+#if 1
+#define USE_AVX512_PREFETCH
+#endif
+
 #ifdef USESTACK
 static   STREAM_TYPE	a[STREAM_ARRAY_SIZE+OFFSET],
 			b[STREAM_ARRAY_SIZE+OFFSET],
@@ -603,8 +610,13 @@ void tuned_STREAM_Copy()
 #endif          
 
 #ifdef BENCH_AVX512
-	  for (j=start; j< start+chunk; j+=8)
+	  for (j=start; j< start+chunk; j+=8) {
+#ifdef USE_AVX512_PREFETCH
+            _mm_prefetch( (void*) &a[j+128], _MM_HINT_T2 );
+            _mm_prefetch( (void*) &a[j+16], _MM_HINT_T1 );
+#endif
             _mm512_stream_pd(&c[j], _mm512_load_pd(&a[j]));
+    }
 #endif
 #ifdef BENCH_AVX
 	  for (j=start; j< start+chunk; j+=4)
@@ -843,8 +855,15 @@ void tuned_STREAM_Triad(STREAM_TYPE scalar)
 #endif      
 
 #ifdef BENCH_AVX512    
-	  for (j=start; j< start+chunk; j+=8)
+	  for (j=start; j< start+chunk; j+=8) {
+#ifdef USE_AVX512_PREFETCH
+             _mm_prefetch( (void*) &b[j+64], _MM_HINT_T2 );
+             _mm_prefetch( (void*) &c[j+64], _MM_HINT_T2 );
+             _mm_prefetch( (void*) &b[j+16], _MM_HINT_T1 );
+             _mm_prefetch( (void*) &c[j+16], _MM_HINT_T1 );
+#endif
              _mm512_stream_pd(&a[j], _mm512_add_pd(_mm512_load_pd(&b[j]), _mm512_mul_pd(vecscalar, _mm512_load_pd(&c[j])) ) );
+    }
 #endif
 #ifdef BENCH_AVX    
 	  for (j=start; j< start+chunk; j+=4)
