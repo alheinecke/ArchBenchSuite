@@ -85,6 +85,11 @@ CFLAGS:=$(CFLAGS) -DBENCH_POWER8
 EXE=peak_power8
 endif 
 
+ifeq ($(TARGET), rv64)
+CFLAGS:=$(CFLAGS) -DBENCH_RV64 -march=rv64imfdv
+EXE=peak_rv64
+endif 
+
 ifeq ($(OPENMP), 1)
 CFLAGS:=$(CFLAGS) -fopenmp
 endif

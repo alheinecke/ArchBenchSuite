@@ -27,7 +27,7 @@
 ** SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.              **
 ******************************************************************************/
 
-#if 0 
+#if 0
 #define USE_PERF_COUNTERS
 #endif
 
@@ -56,6 +56,10 @@
 # ifndef MAX
 # define MAX(x,y) ((x)>(y)?(x):(y))
 # endif
+
+#ifdef __riscv
+#define __RV64__
+#endif
 
 #ifdef __VSX__
 void run_gpr_kernel(size_t* i_data, size_t i_chunkSize) {
@@ -124,7 +128,7 @@ inline double sec(struct timeval start, struct timeval end) {
 
 inline void run_benchmark( double* i_data, size_t i_arraySize, size_t i_copies, size_t i_iters ) {
   // we do manual reduction here as we don't rely on a smart OpenMP implementation
-  #pragma omp parallel 
+  #pragma omp parallel
   {
 #ifdef _OPENMP
     size_t l_tid = omp_get_thread_num();
@@ -133,6 +137,7 @@ inline void run_benchmark( double* i_data, size_t i_arraySize, size_t i_copies, 
     size_t l_tid = 0;
     size_t l_numThreads = 1;
 #endif
+
     size_t  l_arraySize = i_arraySize/i_copies;
     size_t  threads_per_copy = l_numThreads / i_copies;
     double* l_locAddr = i_data + (l_arraySize*(l_tid/threads_per_copy));
@@ -185,7 +190,7 @@ inline void run_benchmark( double* i_data, size_t i_arraySize, size_t i_copies, 
                              "ld1 {v31.2d}, [x0],16\n\t"
                              "sub x1, x1, #64\n\t"
                              "cbnz x1, 1b\n\t"
-                        : : "r" (l_locAddr), "r" (l_parraySize) : "x0","x1","v0","v1","v2","v4","v5","v6","v7","v8","v9","v10","v11","v12","v13","v14","v15","v16","v17","v18","v19","v20","v21","v22","v23","v24","v25","v26","v27","v28","v29","v30","v31"); 
+                        : : "r" (l_locAddr), "r" (l_parraySize) : "x0","x1","v0","v1","v2","v4","v5","v6","v7","v8","v9","v10","v11","v12","v13","v14","v15","v16","v17","v18","v19","v20","v21","v22","v23","v24","v25","v26","v27","v28","v29","v30","v31");
 #endif
 #ifdef __AVX512F__
       __asm__ __volatile__("movq %0, %%r8\n\t"
@@ -298,11 +303,34 @@ inline void run_benchmark( double* i_data, size_t i_arraySize, size_t i_copies, 
                            "addl $128, %%eax\n\t"
                            "cmpl $0, %%ebx\n\t"
                            "jg 1b\n\t"
-                      : : "m"(l_locAddr), "m"(l_parraySize)  : "eax","ebx","xmm0","xmm1","xmm2","xmm3","xmm4","xmm5","xmm6","xmm7");
+                      : : "m"(l_locAddr), "m"(l_arraySize)  : "eax","ebx","xmm0","xmm1","xmm2","xmm3","xmm4","xmm5","xmm6","xmm7");
+#elif defined(__RV64__)
+#define VLMAX (65536)
+    size_t gvl;
+    int mvl;
+    int rvl = VLMAX;
+
+    printf("Array location %lx %lf %ld \n", l_locAddr, l_locAddr[0], l_parraySize[0]);
+
+    __asm__ volatile ("vsetvli %0, %1, e32, m2, ta, ma\n\t"
+                      "ld x18, %2\n\t"
+                      "ld x19, %3\n\t"
+                      "read_loop:"
+                      "vl8re32.v v0, (x18)\n\t"
+                      "addi x18, x18, 256\n\t"
+                      "vl8re32.v v8, (x18)\n\t"
+                      "addi x18, x18, 256\n\t"
+                      "vl8re32.v v16, (x18)\n\t"
+                      "addi x18, x18, 256\n\t"
+                      "vl8re32.v v24, (x18)\n\t"
+                      "addi x18, x18, 256\n\t"
+                      "addi x19, x19, -1024\n\t"
+                      "bnez x19, read_loop\n\t"
+                      : "=r"(mvl) : "r" (rvl), "m" (l_locAddr), "m" (l_arraySize) : "x18", "x19", "v0", "v1", "v2", "v3", "v4", "v5", "v6", "v7", "v8", "v9", "v10", "v11", "v12", "v13", "v14", "v15", "v16", "v17", "v18", "v19", "v20", "v21", "v22", "v23", "v24", "v25", "v26", "v27", "v28", "v29", "v30", "v31" );
 #endif
       }
-    } 
-} 
+    }
+}
 
 
 int main(int argc, char* argv[]) {
@@ -331,7 +359,7 @@ int main(int argc, char* argv[]) {
 
   l_arraySize_0 = atoi(argv[1]);
   l_arrayFactor = atoi(argv[2]);
-  l_arraySteps = atoi(argv[3]); 
+  l_arraySteps = atoi(argv[3]);
   l_copies = atoi(argv[4]);
   l_iters_0 = atoi(argv[5]);
 
@@ -350,12 +378,12 @@ int main(int argc, char* argv[]) {
     printf("ERROR % 256\n");
     exit(-1);
   }
-  
+
   printf("Number of threads: %lld\n", l_numThreads);
   printf("Using %i private Read Buffers\n", l_copies);
   l_arraySize_0 *= l_copies;
   printf("KiB-per-core-read,GiB/s,Time\n");
- 
+
   for ( i = 0 ; i < l_arraySteps; ++i ) {
     double* l_data;
     size_t l_n = 0;
@@ -374,7 +402,7 @@ int main(int argc, char* argv[]) {
 
     // pre-heat caches
     run_benchmark( l_data, l_arraySize, l_copies, 5 );
-    
+
     // run benchmark
 #ifdef USE_PERF_COUNTERS
     read_uncore_ctrs( &a );
@@ -388,9 +416,9 @@ int main(int argc, char* argv[]) {
     difa_uncore_ctrs( &a, &b, &s );
     divi_uncore_ctrs( &s, l_iters );
 #endif
-    // postprocess timing 
+    // postprocess timing
     l_avgTime /= (double)l_iters;
-    
+
     // output
     printf("%f,%f,%f\n", (l_size/l_copies)/1024.0, (((l_size/l_copies)*l_numThreads)/(1024.0*1024.0*1024.0))/l_avgTime, l_avgTime);
 #ifdef USE_PERF_COUNTERS
@@ -399,5 +427,5 @@ int main(int argc, char* argv[]) {
 #endif
     free(l_data);
   }
-  return 0; 
+  return 0;
 }

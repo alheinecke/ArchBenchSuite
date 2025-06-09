@@ -68,6 +68,11 @@ CFLAGS=-O2 -fopenmp -DBENCH_ARMV8 -DNTIMES=100 -DSTREAM_ARRAY_SIZE=73728000 -mar
 EXE=stream_armv8
 endif 
 
+ifeq ($(TARGET), rv64)
+CFLAGS=-O2 -DBENCH_RV64 -DNTIMES=100 -DSTREAM_ARRAY_SIZE=73728000 -march=rv64imfdv -fopenmp 
+EXE=stream_rv64
+endif
+
 ifeq ($(TARGET), power8)
 CFLAGS=-O2 -fopenmp -DBENCH_POWER8 -DNTIMES=100 -DSTREAM_ARRAY_SIZE=73728000 -mcpu=power8 -mvsx -mdirect-move -mpower8-fusion -mpower8-vector -fstrict-aliasing
 EXE=stream_power8
