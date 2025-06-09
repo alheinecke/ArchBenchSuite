@@ -37,7 +37,7 @@
 #define USE_CORE_PERF_COUNTERS
 #endif
 
-#if 0
+#if __AVX512F__
 #include <immintrin.h>
 #endif
 #include <stdio.h>
@@ -47,8 +47,12 @@
 #include "./../common/perf_counter_markers.h"
 #endif
 
+#if 0
+#define USE_THREE_BUFFERS
+#endif
+
 #ifndef STREAM_ARRAY_SIZE
-#   define STREAM_ARRAY_SIZE	100000
+#   define STREAM_ARRAY_SIZE	1000000
 #endif
 
 #ifdef NTIMES
@@ -73,7 +77,7 @@ inline double sec(struct timeval start, struct timeval end) {
 
 int main(int argc, char* argv[]) {
   double* l_data;
-#if 0
+#ifdef USE_THREE_BUFFERS
   double* l_data2;
   double* l_data3;
 #endif
@@ -110,27 +114,27 @@ int main(int argc, char* argv[]) {
 #endif
 
   l_sum = ((l_sum*l_sum) + l_sum)/2;
-#if 0
-  l_sum *= 2;
+#ifdef USE_THREE_BUFFERS
+  l_sum *= 3;
 #endif
   posix_memalign((void**)&l_data,  2097152, ((size_t)STREAM_ARRAY_SIZE)*sizeof(double));
-#if 0
+#ifdef USE_THREE_BUFFERS
   posix_memalign((void**)&l_data2, 2097152, ((size_t)STREAM_ARRAY_SIZE)*sizeof(double));
   posix_memalign((void**)&l_data3, 2097152, ((size_t)STREAM_ARRAY_SIZE)*sizeof(double));
 #endif
   l_times = (double*)malloc(sizeof(double)*NTIMES);
 
-#if 1
+#ifndef USE_THREE_BUFFERS
   printf("READ BW Test Size MiB: %f\n", (l_size/(1024.0*1024.0)));
 #else
-  printf("READ BW Test Size MiB: %f\n", (l_size*2/(1024.0*1024.0)));
+  printf("READ BW Test Size MiB: %f\n", (l_size*3/(1024.0*1024.0)));
 #endif
 
   // init data
   #pragma omp parallel for
   for ( l_n = 0; l_n < STREAM_ARRAY_SIZE; l_n++ ) {
     l_data[l_n] = (float)l_n;
-#if 0
+#ifdef USE_THREE_BUFFERS
     l_data2[l_n] = (float)l_n;
     l_data3[l_n] = (float)l_n;
 #endif
@@ -150,30 +154,32 @@ int main(int argc, char* argv[]) {
     #pragma omp parallel 
     {
       double l_res = 0.0;
-#if 0
-      double l_res2 = 0.0;
+
+#ifdef __AVX512F__
       __m512d l_acc = _mm512_setzero_pd();
+#ifdef USE_THREE_BUFFERS
       __m512d l_acc2 = _mm512_setzero_pd();
       __m512d l_acc3 = _mm512_setzero_pd();
 #endif
-      #pragma omp for nowait
-      for ( l_n = 0; l_n < STREAM_ARRAY_SIZE; l_n++ ) {
-#if 0
-	l_acc = _mm512_add_pd( l_acc, _mm512_load_pd( l_data + l_n ));
-	l_acc2 = _mm512_add_pd( l_acc2, _mm512_load_pd( l_data2 + l_n ));
-	l_acc3 = _mm512_add_pd( l_acc3, _mm512_load_pd( l_data3 + l_n ));
-	_mm_prefetch( l_data + ((l_n + 2048) % STREAM_ARRAY_SIZE), _MM_HINT_T1 );
 #endif
-	l_res += l_data[l_n];
-#if 0
-	l_res2 += l_data2[l_n];
+      #pragma omp for nowait
+      for ( l_n = 0; l_n < STREAM_ARRAY_SIZE; l_n+=8 ) {
+#ifdef __AVX512F__
+        l_acc = _mm512_add_pd( l_acc, _mm512_load_pd( l_data + l_n ));
+#ifdef USE_THREE_BUFFERS
+        l_acc2 = _mm512_add_pd( l_acc2, _mm512_load_pd( l_data2 + l_n ));
+      	l_acc3 = _mm512_add_pd( l_acc3, _mm512_load_pd( l_data3 + l_n ));
+#endif
+#else
+      	l_res += l_data[l_n];
 #endif
       }
-#if 0
-      l_res += l_res2;
+#ifdef __AVX512F__
       l_res = _mm512_reduce_add_pd( l_acc );
+#ifdef USE_THREE_BUFFERS
       l_res += _mm512_reduce_add_pd( l_acc2 );
       l_res += _mm512_reduce_add_pd( l_acc3 );
+#endif
 #endif
       #pragma omp atomic
       l_result += l_res;
@@ -204,14 +210,14 @@ int main(int argc, char* argv[]) {
   l_avgTime /= (double)NTIMES;
   
   // output
-#if 1
+#ifndef USE_THREE_BUFFERS
   printf("AVG GiB/s  (calculated): %f\n", (l_size/(1024.0*1024.0*1024.0))/l_avgTime);
   printf("MAX GiB/s  (calculated): %f\n", (l_size/(1024.0*1024.0*1024.0))/l_minTime);
   printf("MIN GiB/s  (calculated): %f\n", (l_size/(1024.0*1024.0*1024.0))/l_maxTime);
 #else
-  printf("AVG GiB/s  (calculated): %f\n", (l_size*2.0/(1024.0*1024.0*1024.0))/l_avgTime);
-  printf("MAX GiB/s  (calculated): %f\n", (l_size*2.0/(1024.0*1024.0*1024.0))/l_minTime);
-  printf("MIN GiB/s  (calculated): %f\n", (l_size*2.0/(1024.0*1024.0*1024.0))/l_maxTime);
+  printf("AVG GiB/s  (calculated): %f\n", (l_size*3.0/(1024.0*1024.0*1024.0))/l_avgTime);
+  printf("MAX GiB/s  (calculated): %f\n", (l_size*3.0/(1024.0*1024.0*1024.0))/l_minTime);
+  printf("MIN GiB/s  (calculated): %f\n", (l_size*3.0/(1024.0*1024.0*1024.0))/l_maxTime);
 #endif
 #ifdef USE_UNCORE_PERF_COUNTERS
 #ifdef USE_DRAM_COUNTERS
