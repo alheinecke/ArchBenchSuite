@@ -126,9 +126,8 @@ inline double sec(struct timeval start, struct timeval end) {
 }
 
 
-inline void run_benchmark( double* i_data, size_t i_arraySize, size_t i_copies, size_t i_iters ) {
-  // we do manual reduction here as we don't rely on a smart OpenMP implementation
-  #pragma omp parallel
+void run_benchmark( double* i_data, size_t i_arraySize, size_t i_copies, size_t i_iters ) {
+  #pragma omp parallel shared(i_data, i_arraySize, i_copies, i_iters)
   {
 #ifdef _OPENMP
     size_t l_tid = omp_get_thread_num();
@@ -241,34 +240,58 @@ inline void run_benchmark( double* i_data, size_t i_arraySize, size_t i_copies, 
                            "movq (%%r10), %%r9\n\t"
                            "1:\n\t"
                            "subq $64, %%r9\n\t"
+#if 0
+                           "prefetcht0 2048(%%r8)\n\t"
+#endif
                            "vbroadcasti32x4    0(%%r8),   %%zmm0\n\t"
                            "vbroadcasti32x4   16(%%r8),   %%zmm1\n\t"
                            "vbroadcasti32x4   32(%%r8),   %%zmm2\n\t"
                            "vbroadcasti32x4   48(%%r8),   %%zmm3\n\t"
+#if 0
+                           "prefetcht0 2112(%%r8)\n\t"
+#endif
                            "vbroadcasti32x4   64(%%r8),   %%zmm4\n\t"
                            "vbroadcasti32x4   80(%%r8),   %%zmm5\n\t"
                            "vbroadcasti32x4   96(%%r8),   %%zmm6\n\t"
                            "vbroadcasti32x4  112(%%r8),   %%zmm7\n\t"
+#if 0
+                           "prefetcht0 2176(%%r8)\n\t"
+#endif
                            "vbroadcasti32x4  128(%%r8),   %%zmm8\n\t"
                            "vbroadcasti32x4  144(%%r8),   %%zmm9\n\t"
                            "vbroadcasti32x4  160(%%r8),  %%zmm10\n\t"
                            "vbroadcasti32x4  176(%%r8),  %%zmm11\n\t"
+#if 0
+                           "prefetcht0 2240(%%r8)\n\t"
+#endif
                            "vbroadcasti32x4  192(%%r8),  %%zmm12\n\t"
                            "vbroadcasti32x4  208(%%r8),  %%zmm13\n\t"
                            "vbroadcasti32x4  224(%%r8),  %%zmm14\n\t"
                            "vbroadcasti32x4  240(%%r8),  %%zmm15\n\t"
+#if 0
+                           "prefetcht0 2304(%%r8)\n\t"
+#endif
                            "vbroadcasti32x4  256(%%r8),  %%zmm16\n\t"
                            "vbroadcasti32x4  272(%%r8),  %%zmm17\n\t"
                            "vbroadcasti32x4  288(%%r8),  %%zmm18\n\t"
                            "vbroadcasti32x4  304(%%r8),  %%zmm19\n\t"
+#if 0
+                           "prefetcht0 2368(%%r8)\n\t"
+#endif
                            "vbroadcasti32x4  320(%%r8),  %%zmm20\n\t"
                            "vbroadcasti32x4  336(%%r8),  %%zmm21\n\t"
                            "vbroadcasti32x4  352(%%r8),  %%zmm22\n\t"
                            "vbroadcasti32x4  368(%%r8),  %%zmm23\n\t"
+#if 0
+                           "prefetcht0 2432(%%r8)\n\t"
+#endif
                            "vbroadcasti32x4  384(%%r8),  %%zmm24\n\t"
                            "vbroadcasti32x4  400(%%r8),  %%zmm25\n\t"
                            "vbroadcasti32x4  416(%%r8),  %%zmm26\n\t"
                            "vbroadcasti32x4  432(%%r8),  %%zmm27\n\t"
+#if 0
+                           "prefetcht0 2496(%%r8)\n\t"
+#endif
                            "vbroadcasti32x4  448(%%r8),  %%zmm28\n\t"
                            "vbroadcasti32x4  464(%%r8),  %%zmm29\n\t"
                            "vbroadcasti32x4  480(%%r8),  %%zmm30\n\t"
@@ -419,12 +442,12 @@ int main(int argc, char* argv[]) {
 #endif
 
   if (l_arraySize_0 % 256 != 0) {
-    printf("ERROR % 256\n");
+    printf("ERROR mod 256\n");
     exit(-1);
   }
 
-  printf("Number of threads: %lld\n", l_numThreads);
-  printf("Using %i private Read Buffers\n", l_copies);
+  printf("Number of threads: %zu\n", l_numThreads);
+  printf("Using %zu private Read Buffers\n", l_copies);
   l_arraySize_0 *= l_copies;
   printf("KiB-per-core-read,GiB/s,Time\n");
 
