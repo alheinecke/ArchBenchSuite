@@ -28,13 +28,14 @@
 #############################################################################
 
 CC = gcc
-CFLAGS = -O2 -fopenmp -DNTIMES=100 -DSTREAM_ARRAY_SIZE=64000000 -mcpu=power8 -fstrict-aliasing
-#CFLAGS = -O2 -fopenmp -DNTIMES=100 -DSTREAM_ARRAY_SIZE=64000000 -march=armv8-a -fstrict-aliasing
-#CFLAGS = -O2 -fopenmp -DNTIMES=100 -DSTREAM_ARRAY_SIZE=64000000 -mavx2 -fstrict-aliasing
-#CFLAGS = -O2 -fopenmp -DNTIMES=100 -DSTREAM_ARRAY_SIZE=64000000 -msse3 -fstrict-aliasing
-CC = icc
-CFLAGS = -O3 -xCOMMON-AVX512 -qopenmp -DNTIMES=10000 -DSTREAM_ARRAY_SIZE=199808000 -qopt-streaming-cache-evict=0 -qopt-streaming-stores always -qopt-prefetch-distance=64,8 -qopenmp-link=static
-CFLAGS = -O3 -xCOMMON-AVX512 -qopenmp -DNTIMES=10000 -DSTREAM_ARRAY_SIZE=199808000 -qopt-streaming-cache-evict=0 -qopt-streaming-stores always -qopt-prefetch=5 -qopt-prefetch-distance=448,32 -qopenmp-link=static
+#CFLAGS = -O2 -fopenmp -DNTIMES=100 -DSTREAM_ARRAY_SIZE=199808000 -mcpu=power8 -fstrict-aliasing
+#CFLAGS = -O2 -fopenmp -DNTIMES=100 -DSTREAM_ARRAY_SIZE=199808000 -march=armv8-a -fstrict-aliasing
+#CFLAGS = -O2 -fopenmp -DNTIMES=100 -DSTREAM_ARRAY_SIZE=199808000 -msse3 -fstrict-aliasing
+CFLAGS = -O2 -fopenmp -DNTIMES=100 -DSTREAM_ARRAY_SIZE=199808000 -mavx2 -fstrict-aliasing
+#CFLAGS = -O2 -fopenmp -DNTIMES=100 -DSTREAM_ARRAY_SIZE=199808000 -mavx512f -mavx512cd -fstrict-aliasing
+#CC = icc
+#CFLAGS = -O3 -xCOMMON-AVX512 -qopenmp -DNTIMES=10000 -DSTREAM_ARRAY_SIZE=199808000 -qopt-streaming-cache-evict=0 -qopt-streaming-stores always -qopt-prefetch-distance=64,8 -qopenmp-link=static
+#CFLAGS = -O3 -xCOMMON-AVX512 -qopenmp -DNTIMES=10000 -DSTREAM_ARRAY_SIZE=199808000 -qopt-streaming-cache-evict=0 -qopt-streaming-stores always -qopt-prefetch=5 -qopt-prefetch-distance=448,32 -qopenmp-link=static
 
 CC=clang
 CFLAGS=-O3 -mavx512f -mavx512cd -mavx512bw -mavx512dq -fopenmp -DBENCH_AVX512 -DNTIMES=100 -DSTREAM_ARRAY_SIZE=299808000 -fstrict-aliasing

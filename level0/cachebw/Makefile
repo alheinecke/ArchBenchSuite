@@ -31,6 +31,7 @@ CC = gcc
 #CC = clang
 #CFLAGS = -O2 -fopenmp -mcpu=power8 -mvsx -mdirect-move -mpower8-fusion -mpower8-vector -fstrict-aliasing
 #CFLAGS = -O2 -fopenmp -march=armv8-a -fstrict-aliasing
+#CFLAGS = -O2 -fopenmp -march=rv64imfdv -fstrict-aliasing
 #CFLAGS = -O2 -fopenmp -msse3 -fstrict-aliasing
 #CFLAGS = -O2 -fopenmp -mavx2 -fstrict-aliasing
 CFLAGS = -O2 -mavx2 -fstrict-aliasing

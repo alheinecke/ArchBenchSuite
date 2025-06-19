@@ -49,6 +49,11 @@
 # include <sys/time.h>
 # include <unistd.h>
 
+#ifdef BENCH_RV64
+# include <riscv_vector.h>
+# include <omp.h>
+#endif
+
 /*-----------------------------------------------------------------------
  * INSTRUCTIONS:
  *
@@ -178,7 +183,14 @@
 #define STREAM_TYPE double
 #endif
 
-/*#define USESTACK*/
+#if 0
+#define USESTACK
+#endif
+
+#if 1
+#define USE_AVX512_PREFETCH
+#endif
+
 #ifdef USESTACK
 static   STREAM_TYPE	a[STREAM_ARRAY_SIZE+OFFSET],
 			b[STREAM_ARRAY_SIZE+OFFSET],
@@ -217,6 +229,41 @@ extern void checkSTREAMresults();
 #endif
 #ifdef BENCH_ARMV8
 #define TUNED
+#endif
+#ifdef BENCH_RV64
+#define TUNED
+#endif
+
+
+#ifdef USE_CUDA_HMM
+#include <cuda.h>
+
+#define CUDA_THREAD_PER_BLOCK 256
+#define TUNED
+__global__ void tuned_STREAM_Copy_cuda(double* d_a, double* d_c);
+__global__ void tuned_STREAM_Scale_cuda(double* d_c, double* d_b);
+__global__ void tuned_STREAM_Add_cuda(double* d_a, double* d_b, double* d_c);
+__global__ void tuned_STREAM_Triad_cuda(double* d_a, double* d_b, double* d_c);
+
+__global__ void tuned_STREAM_Copy_cuda(double* d_a, double* d_c) {
+	int id = blockDim.x * blockIdx.x + threadIdx.x;
+	if(id < STREAM_ARRAY_SIZE) d_c[id] = d_a[id];
+}
+
+__global__ void tuned_STREAM_Scale_cuda(double* d_c, double* d_b) {
+	int id = blockDim.x * blockIdx.x + threadIdx.x;
+	if(id < STREAM_ARRAY_SIZE) d_b[id] = 3.0 * d_c[id];
+}
+
+__global__ void tuned_STREAM_Add_cuda(double* d_a, double* d_b, double* d_c) {
+	int id = blockDim.x * blockIdx.x + threadIdx.x;
+	if(id < STREAM_ARRAY_SIZE) d_c[id] = d_a[id] + d_b[id];
+}
+
+__global__ void tuned_STREAM_Triad_cuda(double* d_a, double* d_b, double* d_c) {
+	int id = blockDim.x * blockIdx.x + threadIdx.x;
+	if(id < STREAM_ARRAY_SIZE) d_a[id] = d_b[id] + 3.0 * d_c[id];
+}
 #endif
 
 #ifdef TUNED
@@ -283,6 +330,8 @@ main()
 	    printf ("Number of Threads requested = %i\n",k);
         }
     }
+#else
+    k = 1;
 #endif
 
 #ifdef _OPENMP
@@ -591,6 +640,13 @@ void checkSTREAMresults ()
 /* stubs for "tuned" versions of the kernels */
 void tuned_STREAM_Copy()
 {
+#ifdef USE_CUDA_HMM
+	int thr_per_blk = CUDA_THREAD_PER_BLOCK;
+	int blk_in_grid = ceil( float(STREAM_ARRAY_SIZE) / thr_per_blk );
+
+  tuned_STREAM_Copy_cuda<<< blk_in_grid, thr_per_blk >>>(a, c);
+  cudaDeviceSynchronize();
+#else
         #pragma omp parallel
         {
           ssize_t j;
@@ -603,8 +659,13 @@ void tuned_STREAM_Copy()
 #endif          
 
 #ifdef BENCH_AVX512
-	  for (j=start; j< start+chunk; j+=8)
+	  for (j=start; j< start+chunk; j+=8) {
+#ifdef USE_AVX512_PREFETCH
+            _mm_prefetch( (void*) &a[j+128], _MM_HINT_T2 );
+            _mm_prefetch( (void*) &a[j+16], _MM_HINT_T1 );
+#endif
             _mm512_stream_pd(&c[j], _mm512_load_pd(&a[j]));
+    }
 #endif
 #ifdef BENCH_AVX
 	  for (j=start; j< start+chunk; j+=4)
@@ -617,6 +678,12 @@ void tuned_STREAM_Copy()
 #ifdef BENCH_POWER8
 	  for (j=start; j< start+chunk; j+=2)
             vec_vsx_st(vec_vsx_ld(0, &a[j]), 0, &c[j]);
+#endif
+#ifdef BENCH_RV64
+    size_t gvl = __riscv_vsetvl_e64m1(16);
+	  for (j=start; j< start+chunk; j+=2){
+            __riscv_vse64_v_f64m1(&c[j], __riscv_vle64_v_f64m1((&a[j]), gvl), gvl);
+    }
 #endif
 #ifdef BENCH_ARMV8
         __asm__ __volatile__("mov x0, %0\n\t"  // a
@@ -650,11 +717,18 @@ void tuned_STREAM_Copy()
 #endif
 #endif
         }
-
+#endif
 }
 
 void tuned_STREAM_Scale(STREAM_TYPE scalar)
 {
+#ifdef USE_CUDA_HMM
+	int thr_per_blk = CUDA_THREAD_PER_BLOCK;
+	int blk_in_grid = ceil( float(STREAM_ARRAY_SIZE) / thr_per_blk );
+
+  tuned_STREAM_Scale_cuda<<< blk_in_grid, thr_per_blk >>>(c, b);
+  cudaDeviceSynchronize();
+#else
 #ifdef BENCH_AVX512
         __m512d vecscalar = _mm512_set1_pd(scalar);
 #endif
@@ -667,6 +741,10 @@ void tuned_STREAM_Scale(STREAM_TYPE scalar)
 #ifdef BENCH_POWER8
         __attribute__((aligned(128))) STREAM_TYPE pumped_scalar[2] = {scalar, scalar};
         vector double vecscalar = vec_vsx_ld(0, pumped_scalar);
+#endif
+#ifdef BENCH_RV64
+    size_t gvl = __riscv_vsetvl_e64m1(16);
+    double vecscalar = scalar;
 #endif
 
         #pragma omp parallel
@@ -696,6 +774,10 @@ void tuned_STREAM_Scale(STREAM_TYPE scalar)
 #ifdef BENCH_POWER8    
 	  for (j=start; j< start+chunk; j+=2)
             vec_vsx_st(vec_mul(vecscalar, vec_vsx_ld(0, &c[j])), 0, &b[j]);
+#endif
+#ifdef BENCH_RV64    
+	  for (j=start; j< start+chunk; j+=2)
+            __riscv_vse64_v_f64m1(&b[j], __riscv_vfmul_vf_f64m1(__riscv_vle64_v_f64m1(&c[j], gvl), vecscalar, gvl), gvl);
 #endif
 #ifdef BENCH_ARMV8
         __asm__ __volatile__("mov x0, %0\n\t"  // b
@@ -736,10 +818,18 @@ void tuned_STREAM_Scale(STREAM_TYPE scalar)
 #endif
 #endif
         }
+#endif
 }
 
 void tuned_STREAM_Add()
 {
+#ifdef USE_CUDA_HMM
+	int thr_per_blk = CUDA_THREAD_PER_BLOCK;
+	int blk_in_grid = ceil( float(STREAM_ARRAY_SIZE) / thr_per_blk );
+
+  tuned_STREAM_Add_cuda<<< blk_in_grid, thr_per_blk >>>(a, b, c);
+  cudaDeviceSynchronize();
+#else
         #pragma omp parallel
         {
           ssize_t j;
@@ -770,6 +860,12 @@ void tuned_STREAM_Add()
 #ifdef BENCH_POWER8     
 	  for (j=start; j< start+chunk; j+=2)
             vec_vsx_st(vec_add(vec_vsx_ld(0, &a[j]), vec_vsx_ld(0, &b[j])), 0, &c[j]);
+#endif
+#ifdef BENCH_RV64
+    size_t gvl = __riscv_vsetvl_e64m1(16);
+	  for (j=start; j< start+chunk; j+=2){
+            __riscv_vse64_v_f64m1(&c[j], __riscv_vfadd_vv_f64m1(__riscv_vle64_v_f64m1((&a[j]), gvl), __riscv_vle64_v_f64m1((&b[j]), gvl), gvl), gvl);
+    }
 #endif
 #ifdef BENCH_ARMV8    
         __asm__ __volatile__("mov x0, %0\n\t"  // a
@@ -814,10 +910,18 @@ void tuned_STREAM_Add()
 #endif
 #endif
         }
+#endif
 }
 
 void tuned_STREAM_Triad(STREAM_TYPE scalar)
 {
+#ifdef USE_CUDA_HMM
+	int thr_per_blk = CUDA_THREAD_PER_BLOCK;
+	int blk_in_grid = ceil( float(STREAM_ARRAY_SIZE) / thr_per_blk );
+
+  tuned_STREAM_Triad_cuda<<< blk_in_grid, thr_per_blk >>>(a, b, c);
+  cudaDeviceSynchronize();
+#else
 #ifdef BENCH_AVX512
         __m512d vecscalar = _mm512_set1_pd(scalar);
 #endif
@@ -831,6 +935,10 @@ void tuned_STREAM_Triad(STREAM_TYPE scalar)
         __attribute__((aligned(128))) STREAM_TYPE pumped_scalar[2] = {scalar, scalar};
         vector double vecscalar = vec_vsx_ld(0, pumped_scalar);
 #endif
+#ifdef BENCH_RV64
+        size_t gvl = __riscv_vsetvl_e64m1(16);
+        double vecscalar = scalar;
+#endif
         #pragma omp parallel
         {
           ssize_t j;
@@ -843,8 +951,15 @@ void tuned_STREAM_Triad(STREAM_TYPE scalar)
 #endif      
 
 #ifdef BENCH_AVX512    
-	  for (j=start; j< start+chunk; j+=8)
+	  for (j=start; j< start+chunk; j+=8) {
+#ifdef USE_AVX512_PREFETCH
+             _mm_prefetch( (void*) &b[j+64], _MM_HINT_T2 );
+             _mm_prefetch( (void*) &c[j+64], _MM_HINT_T2 );
+             _mm_prefetch( (void*) &b[j+16], _MM_HINT_T1 );
+             _mm_prefetch( (void*) &c[j+16], _MM_HINT_T1 );
+#endif
              _mm512_stream_pd(&a[j], _mm512_add_pd(_mm512_load_pd(&b[j]), _mm512_mul_pd(vecscalar, _mm512_load_pd(&c[j])) ) );
+    }
 #endif
 #ifdef BENCH_AVX    
 	  for (j=start; j< start+chunk; j+=4)
@@ -856,7 +971,11 @@ void tuned_STREAM_Triad(STREAM_TYPE scalar)
 #endif
 #ifdef BENCH_POWER8
 	  for (j=start; j< start+chunk; j+=2)
-             vec_vsx_st(vec_madd(vec_vsx_ld(0, &c[j]), vecscalar, vec_vsx_ld(0, &b[j])), 0, &a[j]);
+            vec_vsx_st(vec_madd(vec_vsx_ld(0, &c[j]), vecscalar, vec_vsx_ld(0, &b[j])), 0, &a[j]);
+#endif
+#ifdef BENCH_RV64
+	  for (j=start; j< start+chunk; j+=2)
+             __riscv_vse64_v_f64m1(&a[j], __riscv_vfmadd_vf_f64m1(__riscv_vle64_v_f64m1(&c[j], gvl), vecscalar, __riscv_vle64_v_f64m1(&b[j], gvl), gvl), gvl);
 #endif
 #ifdef BENCH_ARMV8
         __asm__ __volatile__("mov x0, %0\n\t"  // a
@@ -904,6 +1023,7 @@ void tuned_STREAM_Triad(STREAM_TYPE scalar)
 #endif
           
         }
+#endif
 }
 /* end of stubs for the "tuned" versions of the kernels */
 #endif

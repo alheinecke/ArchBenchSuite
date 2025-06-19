@@ -29,6 +29,7 @@
 
 CC = gcc
 TARGET=sse
+SOURCE = stream.c
 
 ifeq ($(TARGET), sse)
 CFLAGS=-O2 -fopenmp -DBENCH_SSE -DNTIMES=100 -DSTREAM_ARRAY_SIZE=73728000 -msse3 -fstrict-aliasing
@@ -50,7 +51,6 @@ EXE=stream_avx2
 endif
 
 ifeq ($(TARGET), avx512)
-#CC=icc
 CC=clang
 #CFLAGS=-O2 -xCOMMON-AVX512 -qopenmp -DBENCH_AVX512 -DNTIMES=100 -DSTREAM_ARRAY_SIZE=73728000 -fstrict-aliasing -opt-streaming-cache-evict=0 -opt-streaming-stores always -opt-prefetch-distance=64,8 -static-intel
 #CFLAGS=-O2 -xCOMMON-AVX512 -qopenmp -DBENCH_AVX512 -DNTIMES=1000 -DSTREAM_ARRAY_SIZE=43008000 -fstrict-aliasing -opt-streaming-cache-evict=0 -opt-streaming-stores always -opt-prefetch-distance=64,8 -static-intel
@@ -61,8 +61,19 @@ CFLAGS=-O2 -xCOMMON-AVX512 -qopenmp -DBENCH_AVX512 -DNTIMES=1000 -DSTREAM_ARRAY_
 CFLAGS=-O2 -mavx512f -mavx512cd -mavx512bw -mavx512dq -fopenmp -DBENCH_AVX512 -DNTIMES=10 -DSTREAM_ARRAY_SIZE=64512000 -fstrict-aliasing
 CFLAGS=-O3 -mavx512f -mavx512cd -mavx512bw -mavx512dq -fopenmp -DBENCH_AVX512 -DNTIMES=100 -DSTREAM_ARRAY_SIZE=64512000 -fstrict-aliasing
 CFLAGS=-O3 -mavx512f -mavx512cd -mavx512bw -mavx512dq -fopenmp -DBENCH_AVX512 -DNTIMES=100 -DSTREAM_ARRAY_SIZE=73728000 -fstrict-aliasing
+CFLAGS=-O3 -mavx512f -mavx512cd -mavx512bw -mavx512dq -fopenmp -DBENCH_AVX512 -DNTIMES=100 -DSTREAM_ARRAY_SIZE=715833344 -fstrict-aliasing
 #CFLAGS=-O2 -xCOMMON-AVX512 -qopenmp -DBENCH_AVX512 -DNTIMES=1000 -DSTREAM_ARRAY_SIZE=64512000 -fstrict-aliasing -qopt-streaming-cache-evict=0 -qopt-streaming-stores always -qopt-prefetch=5 -qopt-prefetch-distance=448,32 -static-intel
 EXE=stream_avx512
+endif
+
+ifeq ($(TARGET), cuda)
+CC=nvcc
+# 16GB
+CFLAGS=-O2 -DUSE_CUDA_HMM -DNTIMES=100 -DSTREAM_ARRAY_SIZE=715833344 -allow-unsupported-compiler
+# 32GB
+#CFLAGS=-O2 -DUSE_CUDA_HMM -DNTIMES=5 -DSTREAM_ARRAY_SIZE=1431655424 -allow-unsupported-compiler
+EXE=stream_cuda
+SOURCE=stream.cu
 endif
 
 ifeq ($(TARGET), armv8)
@@ -70,13 +81,21 @@ CFLAGS=-O2 -fopenmp -DBENCH_ARMV8 -DNTIMES=100 -DSTREAM_ARRAY_SIZE=73728000 -mar
 EXE=stream_armv8
 endif 
 
+ifeq ($(TARGET), rv64)
+CFLAGS=-O2 -DBENCH_RV64 -DNTIMES=100 -DSTREAM_ARRAY_SIZE=73728000 -march=rv64imfdv -fopenmp 
+EXE=stream_rv64
+endif
+
 ifeq ($(TARGET), power8)
 CFLAGS=-O2 -fopenmp -DBENCH_POWER8 -DNTIMES=100 -DSTREAM_ARRAY_SIZE=73728000 -mcpu=power8 -mvsx -mdirect-move -mpower8-fusion -mpower8-vector -fstrict-aliasing
 EXE=stream_power8
 endif 
 
 default: stream.c
-	$(CC) $(CFLAGS) -o $(EXE) stream.c
+ifeq ($(TARGET), cuda)
+	cp stream.c stream.cu
+endif
+	$(CC) $(CFLAGS) -o $(EXE) $(SOURCE)
 
 clean:
 	rm -f stream_* *.o
