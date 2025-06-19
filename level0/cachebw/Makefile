@@ -28,17 +28,14 @@
 #############################################################################
 
 CC = gcc
+#CC = clang
 #CFLAGS = -O2 -fopenmp -mcpu=power8 -mvsx -mdirect-move -mpower8-fusion -mpower8-vector -fstrict-aliasing
-CFLAGS = -O2 -fopenmp -march=armv8-a -fstrict-aliasing
+#CFLAGS = -O2 -fopenmp -march=armv8-a -fstrict-aliasing
+#CFLAGS = -O2 -fopenmp -msse3 -fstrict-aliasing
 #CFLAGS = -O2 -fopenmp -mavx2 -fstrict-aliasing
-#CFLAGS = -O2 -fopenmp -msse3 -fstrict-aliasing
-#CFLAGS = -O2 -fopenmp -msse3 -fstrict-aliasing
-CFLAGS = -O2 -msse -fstrict-aliasing
-#CC = icc
-#CFLAGS = -O3 -xHost -qopenmp
-#CFLAGS = -O3 -xMIC-AVX512 -qopenmp
-#CFLAGS = -O3 -xCOMMON-AVX512 -qopenmp
-#CFLAGS = -O3 -xCORE-AVX2 -qopenmp
+CFLAGS = -O2 -mavx2 -fstrict-aliasing
+#CFLAGS = -O2 -fopenmp -mavx512f -mavx512cd -mavx512dq -mavx512bw -fstrict-aliasing
+#CFLAGS = -O2 -mavx512f -mavx512cd -mavx512dq -mavx512bw -fstrict-aliasing
 
 all: cachebw.exe
 
