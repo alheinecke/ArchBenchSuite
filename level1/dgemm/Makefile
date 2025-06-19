@@ -30,10 +30,10 @@
 #CC = g++
 #CFLAGS = -Ofast -static -ansi-alias -mavx -mfma4 -fopenmp -ftree-vectorize -fprefetch-loop-arrays -funroll-all-loops -ffast-math -march=bdver1
 #CFLAGS = -Ofast -static -ansi-alias -mavx -mfma4 -fopenmp -ftree-vectorize -fprefetch-loop-arrays -funroll-all-loops -ffast-math ${ACML_INC} ${ACML_LIB}
-CC = icc
+CC = icpx
 CFLAGS = -Ofast -static -ansi-alias -mavx -openmp -unroll-loops ${ACML_INC} /lrz/sys/libraries/acml/5.2.0/ifort64_fma4/lib/libacml.a -lgfortran
 CFLAGS = -Ofast -static -ansi-alias -mavx -openmp -unroll-loops ${ACML_INC} ${ACML_SHLIB} -L/lrz/sys/intel/ifort_131_163/composer_xe_2013.3.163/compiler/lib/intel64 -lifcore
-CFLAGS = -Ofast -ansi-alias -mavx -L${MKLROOT}/lib/intel64/ -mkl -unroll-loop -D__MKL -static-intel
+CFLAGS = -Ofast -ansi-alias -mavx -L${MKLROOT}/lib/ -lmkl_intel_lp64 -lmkl_intel_thread -lmkl_core -fopenmp -D__MKL
 
 all: dgemm.exe
 

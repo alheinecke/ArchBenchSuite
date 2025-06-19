@@ -32,6 +32,7 @@
 #include <assert.h>
 #ifdef __MKL
 #include <mkl.h>
+#include <mkl_cblas.h>
 #else
 #include <acml.h>
 #endif

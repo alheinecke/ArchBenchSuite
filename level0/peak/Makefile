@@ -64,8 +64,8 @@ EXE=peak_avx2
 endif
 
 ifeq ($(TARGET), avx512)
-CC=icpc
-CFLAGS:=$(CFLAGS) -DBENCH_AVX512 -xCOMMON-AVX512
+CC=clang++
+CFLAGS:=$(CFLAGS) -DBENCH_AVX512 -mavx512f -mavx512cd
 EXE=peak_avx512
 endif
 
