@@ -27,21 +27,57 @@
 # SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.              #
 #############################################################################
 
-CC = clang
-#CFLAGS = -O2 -fopenmp -mcpu=power8 -mvsx -mdirect-move -mpower8-fusion -mpower8-vector -fstrict-aliasing
-#CFLAGS = -O2 -fopenmp -march=armv8-a -fstrict-aliasing
-#CFLAGS = -O2 -fopenmp -march=rv64imfdv -fstrict-aliasing
-CFLAGS = -O2 -fopenmp -msse3 -fstrict-aliasing
-#CFLAGS = -O2 -fopenmp -mavx2 -fstrict-aliasing
-#CFLAGS = -O2 -fopenmp -mavx512f -mavx512cd -mavx512dq -mavx512bw -fstrict-aliasing
+TARGET = x86
+CFLAGS = -O2 -fopenmp -fstrict-aliasing
 
-all: cachebw.exe
+ifeq ($(TARGET), x86)
+CC = clang
+EXE = cachebw.sse.exe cachebw.avx2.exe cachebw.avx512.exe cachebw.avx512bcast128.exe cachebw.avx512bcast256.exe
+endif
+
+ifeq ($(TARGET), armv8)
+CC = clang
+EXE = cachebw.armv8.exe
+endif
+
+ifeq ($(TARGET), rv64)
+CC = clang
+EXE = cachebw.rv64.exe
+endif
+
+ifeq ($(TARGET), ppc64le)
+CC = clang
+EXE = cachebw.ppc64le.exe
+endif
+
+all: $(EXE)
 
 #cachebw.exe: cachebw.c ./../common/perf_counter_markers.c
 #	$(CC) $(CFLAGS) ./../common/perf_counter_markers.c cachebw.c -o cachebw.exe
 
-cachebw.exe: cachebw.c
-	$(CC) $(CFLAGS) cachebw.c -o cachebw.exe
+cachebw.sse.exe: cachebw.c
+	$(CC) $(CFLAGS) -msse3 cachebw.c -o cachebw.sse.exe
+
+cachebw.avx2.exe: cachebw.c
+	$(CC) $(CFLAGS) -mavx2 cachebw.c -o cachebw.avx2.exe
+
+cachebw.avx512.exe: cachebw.c
+	$(CC) $(CFLAGS) -mavx512f -mavx512cd -mavx512dq -mavx512bw cachebw.c -o cachebw.avx512.exe
+
+cachebw.avx512bcast128.exe: cachebw.c
+	$(CC) $(CFLAGS) -mavx512f -mavx512cd -mavx512dq -mavx512bw cachebw.c -DAVX512_BCAST128 -o cachebw.avx512bcast128.exe
+
+cachebw.avx512bcast256.exe: cachebw.c
+	$(CC) $(CFLAGS) -mavx512f -mavx512cd -mavx512dq -mavx512bw cachebw.c -DAVX512_BCAST256 -o cachebw.avx512bcast256.exe
+
+cachebw.armv8.exe: cachebw.c
+	$(CC) $(CFLAGS) -march=armv8-a cachebw.c -o cachebw.armv8.exe
+
+cachebw.rv64.exe: cachebw.c
+	$(CC) $(CFLAGS) -march=rv64imfdv cachebw.c -o cachebw.rv64.exe
+
+cachebw.ppc64le.exe: cachebw.c
+	$(CC) $(CFLAGS) -mcpu=power8 -mvsx -mdirect-move -mpower8-fusion -mpower8-vector cachebw.c -o cachebw.ppc64le.exe
 
 clean:
-	rm -f cachebw.exe *.o
+	rm -f cachebw.*.exe *.o

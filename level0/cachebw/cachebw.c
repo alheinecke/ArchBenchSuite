@@ -192,7 +192,8 @@ void run_benchmark( double* i_data, size_t i_arraySize, size_t i_copies, size_t 
                         : : "r" (l_locAddr), "r" (l_parraySize) : "x0","x1","v0","v1","v2","v4","v5","v6","v7","v8","v9","v10","v11","v12","v13","v14","v15","v16","v17","v18","v19","v20","v21","v22","v23","v24","v25","v26","v27","v28","v29","v30","v31");
 #endif
 #ifdef __AVX512F__
-#if 1
+#ifndef AVX512_BCAST128
+#ifndef AVX512_BCAST256
       __asm__ __volatile__("movq %0, %%r8\n\t"
                            "movq %1, %%r10\n\t"
                            "movq (%%r10), %%r9\n\t"
@@ -234,7 +235,9 @@ void run_benchmark( double* i_data, size_t i_arraySize, size_t i_copies, size_t 
                            "cmpq $0, %%r9\n\t"
                            "jg 1b\n\t"
                       : : "m"(l_locAddr), "m"(l_parraySize)  : "r8","r9","r10","xmm0","xmm1","xmm2","xmm3","xmm4","xmm5","xmm6","xmm7","xmm8","xmm9","xmm10","xmm11","xmm12","xmm13","xmm14","xmm15","xmm16","xmm17","xmm18","xmm19","xmm20","xmm21","xmm22","xmm23","xmm24","xmm25","xmm26","xmm27","xmm28","xmm29","xmm30","xmm31");
-#else
+#endif
+#endif
+#ifdef AVX512_BCAST128
       __asm__ __volatile__("movq %0, %%r8\n\t"
                            "movq %1, %%r10\n\t"
                            "movq (%%r10), %%r9\n\t"
@@ -297,6 +300,49 @@ void run_benchmark( double* i_data, size_t i_arraySize, size_t i_copies, size_t 
                            "vbroadcasti32x4  480(%%r8),  %%zmm30\n\t"
                            "vbroadcasti32x4  496(%%r8),  %%zmm31\n\t"
                            "addq $512, %%r8\n\t"
+                           "cmpq $0, %%r9\n\t"
+                           "jg 1b\n\t"
+                      : : "m"(l_locAddr), "m"(l_parraySize)  : "r8","r9","r10","xmm0","xmm1","xmm2","xmm3","xmm4","xmm5","xmm6","xmm7","xmm8","xmm9","xmm10","xmm11","xmm12","xmm13","xmm14","xmm15","xmm16","xmm17","xmm18","xmm19","xmm20","xmm21","xmm22","xmm23","xmm24","xmm25","xmm26","xmm27","xmm28","xmm29","xmm30","xmm31");
+#endif
+#ifdef AVX512_BCAST256
+      __asm__ __volatile__("movq %0, %%r8\n\t"
+                           "movq %1, %%r10\n\t"
+                           "movq (%%r10), %%r9\n\t"
+                           "1:\n\t"
+                           "subq $128, %%r9\n\t"
+                           "vbroadcasti32x8    0(%%r8),   %%zmm0\n\t"
+                           "vbroadcasti32x8   32(%%r8),   %%zmm1\n\t"
+                           "vbroadcasti32x8   64(%%r8),   %%zmm2\n\t"
+                           "vbroadcasti32x8   96(%%r8),   %%zmm3\n\t"
+                           "vbroadcasti32x8  128(%%r8),   %%zmm4\n\t"
+                           "vbroadcasti32x8  160(%%r8),   %%zmm5\n\t"
+                           "vbroadcasti32x8  192(%%r8),   %%zmm6\n\t"
+                           "vbroadcasti32x8  224(%%r8),   %%zmm7\n\t"
+                           "vbroadcasti32x8  256(%%r8),   %%zmm8\n\t"
+                           "vbroadcasti32x8  288(%%r8),   %%zmm9\n\t"
+                           "vbroadcasti32x8  320(%%r8),  %%zmm10\n\t"
+                           "vbroadcasti32x8  352(%%r8),  %%zmm11\n\t"
+                           "vbroadcasti32x8  384(%%r8),  %%zmm12\n\t"
+                           "vbroadcasti32x8  416(%%r8),  %%zmm13\n\t"
+                           "vbroadcasti32x8  448(%%r8),  %%zmm14\n\t"
+                           "vbroadcasti32x8  480(%%r8),  %%zmm15\n\t"
+                           "vbroadcasti32x8  512(%%r8),  %%zmm16\n\t"
+                           "vbroadcasti32x8  544(%%r8),  %%zmm17\n\t"
+                           "vbroadcasti32x8  576(%%r8),  %%zmm18\n\t"
+                           "vbroadcasti32x8  608(%%r8),  %%zmm19\n\t"
+                           "vbroadcasti32x8  640(%%r8),  %%zmm20\n\t"
+                           "vbroadcasti32x8  672(%%r8),  %%zmm21\n\t"
+                           "vbroadcasti32x8  704(%%r8),  %%zmm22\n\t"
+                           "vbroadcasti32x8  736(%%r8),  %%zmm23\n\t"
+                           "vbroadcasti32x8  768(%%r8),  %%zmm24\n\t"
+                           "vbroadcasti32x8  800(%%r8),  %%zmm25\n\t"
+                           "vbroadcasti32x8  832(%%r8),  %%zmm26\n\t"
+                           "vbroadcasti32x8  864(%%r8),  %%zmm27\n\t"
+                           "vbroadcasti32x8  896(%%r8),  %%zmm28\n\t"
+                           "vbroadcasti32x8  928(%%r8),  %%zmm29\n\t"
+                           "vbroadcasti32x8  960(%%r8),  %%zmm30\n\t"
+                           "vbroadcasti32x8  992(%%r8),  %%zmm31\n\t"
+                           "addq $1024, %%r8\n\t"
                            "cmpq $0, %%r9\n\t"
                            "jg 1b\n\t"
                       : : "m"(l_locAddr), "m"(l_parraySize)  : "r8","r9","r10","xmm0","xmm1","xmm2","xmm3","xmm4","xmm5","xmm6","xmm7","xmm8","xmm9","xmm10","xmm11","xmm12","xmm13","xmm14","xmm15","xmm16","xmm17","xmm18","xmm19","xmm20","xmm21","xmm22","xmm23","xmm24","xmm25","xmm26","xmm27","xmm28","xmm29","xmm30","xmm31");
