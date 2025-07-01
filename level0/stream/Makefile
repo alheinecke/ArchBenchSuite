@@ -76,6 +76,16 @@ EXE=stream_cuda
 SOURCE=stream.cu
 endif
 
+ifeq ($(TARGET), sycl)
+CC=icpx
+# 16GB
+CFLAGS=-O2 -fsycl -DUSE_SYCL_USM -DNTIMES=100 -DSTREAM_ARRAY_SIZE=715833344
+# 32GB
+#CFLAGS=-O2 -fsycl -DUSE_SYCL_USM -DNTIMES=5 -DSTREAM_ARRAY_SIZE=1431655424
+EXE=stream_sycl
+SOURCE=stream.c
+endif
+
 ifeq ($(TARGET), armv8)
 CFLAGS=-O2 -fopenmp -DBENCH_ARMV8 -DNTIMES=100 -DSTREAM_ARRAY_SIZE=73728000 -march=armv8-a -fstrict-aliasing
 EXE=stream_armv8
