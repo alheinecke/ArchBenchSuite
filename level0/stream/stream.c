@@ -681,13 +681,15 @@ void tuned_STREAM_Copy()
   cudaDeviceSynchronize();
 #elif defined(USE_SYCL_USM)
     sycl::queue q;
-    // // print GPU Name and USM
-    // std::cout << "Using SYCL queue with device: "
-    //           << q.get_device().get_info<sycl::info::device::name>() << std::endl;
+#if 0
+    /* print GPU Name and USM */
+    std::cout << "Using SYCL queue with device: "
+              << q.get_device().get_info<sycl::info::device::name>() << std::endl;
  
-    // // write with sycl::aspect::usm_system_allocations
-    // std::cout << "Using SYCL queue with USM system allocations: "
-    //           << q.get_device().has(sycl::aspect::usm_system_allocations) << "\n";
+    /* write with sycl::aspect::usm_system_allocations */
+    std::cout << "Using SYCL queue with USM system allocations: "
+              << q.get_device().has(sycl::aspect::usm_system_allocations) << "\n";
+#endif
     tuned_STREAM_Copy_sycl(q, a, c);
     q.wait();
 #else
