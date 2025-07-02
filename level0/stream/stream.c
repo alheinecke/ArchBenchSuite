@@ -266,33 +266,102 @@ __global__ void tuned_STREAM_Triad_cuda(double* d_a, double* d_b, double* d_c) {
 }
 #endif
 
-
 #ifdef USE_SYCL_USM
 #include <sycl/sycl.hpp>
+#include <sycl/ext/intel/esimd.hpp>
+#include <sycl/ext/intel/esimd/memory.hpp>
+
+sycl::queue sycl_q; // persistent SYCL queue
 
 #define TUNED
+constexpr int VL = 8;  // Vector length (aligned for 64 byte cache line) 
+static_assert(STREAM_ARRAY_SIZE % VL == 0, "STREAM_ARRAY_SIZE must be a multiple of VL");
 
 void tuned_STREAM_Copy_sycl(sycl::queue& q, double* d_a, double* d_c) {
-    q.parallel_for(sycl::range<1>(STREAM_ARRAY_SIZE), [=](sycl::id<1> i) {
-        d_c[i] = d_a[i];
+    q.submit([&](sycl::handler& h) {
+        h.parallel_for<class StreamCopyESIMD>(
+            sycl::nd_range<1>(
+                sycl::range<1>{STREAM_ARRAY_SIZE / (2 * VL)},
+                sycl::range<1>{64}  // Try 32 or 64 too
+            ),
+            [=](sycl::nd_item<1> item) SYCL_ESIMD_KERNEL {
+                int i = item.get_global_id(0) * 2 * VL;
+
+                sycl::ext::intel::esimd::simd<double, VL> va1(d_a + i);
+                sycl::ext::intel::esimd::simd<double, VL> va2(d_a + i + VL);
+
+                va1.copy_to(d_c + i);
+                va2.copy_to(d_c + i + VL);
+            }
+        );
     });
 }
 
 void tuned_STREAM_Scale_sycl(sycl::queue& q, double* d_c, double* d_b) {
-    q.parallel_for(sycl::range<1>(STREAM_ARRAY_SIZE), [=](sycl::id<1> i) {
-        d_b[i] = 3.0 * d_c[i];
+    q.submit([&](sycl::handler& h) {
+        h.parallel_for<class StreamScaleESIMD>(
+            sycl::nd_range<1>(
+                sycl::range<1>{STREAM_ARRAY_SIZE / (2 * VL)},
+                sycl::range<1>{64}  // adjust as needed
+            ),
+            [=](sycl::nd_item<1> item) SYCL_ESIMD_KERNEL {
+                namespace esimd = sycl::ext::intel::esimd;
+                int i = item.get_global_id(0) * 2 * VL;
+
+                esimd::simd<double, VL> vc1(d_c + i);
+                esimd::simd<double, VL> vc2(d_c + i + VL);
+
+                (vc1 * 3.0).copy_to(d_b + i);
+                (vc2 * 3.0).copy_to(d_b + i + VL);
+            }
+        );
     });
 }
 
 void tuned_STREAM_Add_sycl(sycl::queue& q, double* d_a, double* d_b, double* d_c) {
-    q.parallel_for(sycl::range<1>(STREAM_ARRAY_SIZE), [=](sycl::id<1> i) {
-        d_c[i] = d_a[i] + d_b[i];
+    q.submit([&](sycl::handler& h) {
+        h.parallel_for<class StreamAddESIMD>(
+            sycl::nd_range<1>(
+                sycl::range<1>{STREAM_ARRAY_SIZE / (2 * VL)},
+                sycl::range<1>{64}
+            ),
+            [=](sycl::nd_item<1> item) SYCL_ESIMD_KERNEL {
+                namespace esimd = sycl::ext::intel::esimd;
+                int i = item.get_global_id(0) * 2 * VL;
+
+                esimd::simd<double, VL> va1(d_a + i);
+                esimd::simd<double, VL> vb1(d_b + i);
+                (va1 + vb1).copy_to(d_c + i);
+
+                esimd::simd<double, VL> va2(d_a + i + VL);
+                esimd::simd<double, VL> vb2(d_b + i + VL);
+                (va2 + vb2).copy_to(d_c + i + VL);
+            }
+        );
     });
 }
 
+
 void tuned_STREAM_Triad_sycl(sycl::queue& q, double* d_a, double* d_b, double* d_c) {
-    q.parallel_for(sycl::range<1>(STREAM_ARRAY_SIZE), [=](sycl::id<1> i) {
-        d_a[i] = d_b[i] + 3.0 * d_c[i];
+    q.submit([&](sycl::handler& h) {
+        h.parallel_for<class StreamTriadESIMD>(
+            sycl::nd_range<1>(
+                sycl::range<1>{STREAM_ARRAY_SIZE / (2 * VL)},
+                sycl::range<1>{64}
+            ),
+            [=](sycl::nd_item<1> item) SYCL_ESIMD_KERNEL {
+                namespace esimd = sycl::ext::intel::esimd;
+                int i = item.get_global_id(0) * 2 * VL;
+
+                esimd::simd<double, VL> vb1(d_b + i);
+                esimd::simd<double, VL> vc1(d_c + i);
+                (vb1 + vc1 * 3.0).copy_to(d_a + i);
+
+                esimd::simd<double, VL> vb2(d_b + i + VL);
+                esimd::simd<double, VL> vc2(d_c + i + VL);
+                (vb2 + vc2 * 3.0).copy_to(d_a + i + VL);
+            }
+        );
     });
 }
 
@@ -680,16 +749,17 @@ void tuned_STREAM_Copy()
   tuned_STREAM_Copy_cuda<<< blk_in_grid, thr_per_blk >>>(a, c);
   cudaDeviceSynchronize();
 #elif defined(USE_SYCL_USM)
-    sycl::queue q;
-    // // print GPU Name and USM
-    // std::cout << "Using SYCL queue with device: "
-    //           << q.get_device().get_info<sycl::info::device::name>() << std::endl;
+#if 0
+    /* print GPU Name and USM */
+    std::cout << "Using SYCL queue with device: "
+              << q.get_device().get_info<sycl::info::device::name>() << std::endl;
  
-    // // write with sycl::aspect::usm_system_allocations
-    // std::cout << "Using SYCL queue with USM system allocations: "
-    //           << q.get_device().has(sycl::aspect::usm_system_allocations) << "\n";
-    tuned_STREAM_Copy_sycl(q, a, c);
-    q.wait();
+    /* write with sycl::aspect::usm_system_allocations */
+    std::cout << "Using SYCL queue with USM system allocations: "
+              << q.get_device().has(sycl::aspect::usm_system_allocations) << "\n";
+#endif
+    tuned_STREAM_Copy_sycl(sycl_q, a, c);
+    sycl_q.wait();
 #else
         #pragma omp parallel
         {
@@ -773,9 +843,8 @@ void tuned_STREAM_Scale(STREAM_TYPE scalar)
   tuned_STREAM_Scale_cuda<<< blk_in_grid, thr_per_blk >>>(c, b);
   cudaDeviceSynchronize();
 #elif defined(USE_SYCL_USM)
-    sycl::queue q;
-    tuned_STREAM_Scale_sycl(q, c, b);
-    q.wait();
+    tuned_STREAM_Scale_sycl(sycl_q, c, b);
+    sycl_q.wait();
 #else
 #ifdef BENCH_AVX512
         __m512d vecscalar = _mm512_set1_pd(scalar);
@@ -878,9 +947,8 @@ void tuned_STREAM_Add()
   tuned_STREAM_Add_cuda<<< blk_in_grid, thr_per_blk >>>(a, b, c);
   cudaDeviceSynchronize();
 #elif defined(USE_SYCL_USM)
-    sycl::queue q;
-    tuned_STREAM_Add_sycl(q, a, b, c);
-    q.wait();
+    tuned_STREAM_Add_sycl(sycl_q, a, b, c);
+    sycl_q.wait();
 #else
         #pragma omp parallel
         {
@@ -974,9 +1042,8 @@ void tuned_STREAM_Triad(STREAM_TYPE scalar)
   tuned_STREAM_Triad_cuda<<< blk_in_grid, thr_per_blk >>>(a, b, c);
   cudaDeviceSynchronize();
 #elif defined(USE_SYCL_USM)
-    sycl::queue q;
-    tuned_STREAM_Triad_sycl(q, a, b, c);
-    q.wait();
+    tuned_STREAM_Triad_sycl(sycl_q, a, b, c);
+    sycl_q.wait();
 #else
 #ifdef BENCH_AVX512
         __m512d vecscalar = _mm512_set1_pd(scalar);
@@ -1027,7 +1094,7 @@ void tuned_STREAM_Triad(STREAM_TYPE scalar)
 #endif
 #ifdef BENCH_POWER8
 	  for (j=start; j< start+chunk; j+=2)
-            vec_vsx_st(vec_madd(vec_vsx_ld(0, &c[j]), vecscalar, vec_vsx_ld(0, &b[j])), 0, &a[j]);
+            vec_vsx_st(vec_madd(vec_vsx_ld(0, &c[j]), vecscalar, vec_vsx_ld(0, &b[j])), 0, &a[j]);F
 #endif
 #ifdef BENCH_RV64
 	  for (j=start; j< start+chunk; j+=2)
