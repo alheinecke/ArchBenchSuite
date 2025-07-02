@@ -305,11 +305,10 @@ void tuned_STREAM_Scale_sycl(sycl::queue& q, double* d_c, double* d_b) {
                 sycl::range<1>{64} 
             ),
             [=](sycl::nd_item<1> item) SYCL_ESIMD_KERNEL {
-                namespace esimd = sycl::ext::intel::esimd;
                 int i = item.get_global_id(0) * 2 * VL;
 
-                esimd::simd<double, VL> vc1(d_c + i);
-                esimd::simd<double, VL> vc2(d_c + i + VL);
+                sycl::ext::intel::esimd::simd<double, VL> vc1(d_c + i);
+                sycl::ext::intel::esimd::simd<double, VL> vc2(d_c + i + VL);
 
                 (vc1 * 3.0).copy_to(d_b + i);
                 (vc2 * 3.0).copy_to(d_b + i + VL);
@@ -326,15 +325,14 @@ void tuned_STREAM_Add_sycl(sycl::queue& q, double* d_a, double* d_b, double* d_c
                 sycl::range<1>{64}
             ),
             [=](sycl::nd_item<1> item) SYCL_ESIMD_KERNEL {
-                namespace esimd = sycl::ext::intel::esimd;
                 int i = item.get_global_id(0) * 2 * VL;
 
-                esimd::simd<double, VL> va1(d_a + i);
-                esimd::simd<double, VL> vb1(d_b + i);
+                sycl::ext::intel::esimd::simd<double, VL> va1(d_a + i);
+                sycl::ext::intel::esimd::simd<double, VL> vb1(d_b + i);
                 (va1 + vb1).copy_to(d_c + i);
 
-                esimd::simd<double, VL> va2(d_a + i + VL);
-                esimd::simd<double, VL> vb2(d_b + i + VL);
+                sycl::ext::intel::esimd::simd<double, VL> va2(d_a + i + VL);
+                sycl::ext::intel::esimd::simd<double, VL> vb2(d_b + i + VL);
                 (va2 + vb2).copy_to(d_c + i + VL);
             }
         );
@@ -350,15 +348,14 @@ void tuned_STREAM_Triad_sycl(sycl::queue& q, double* d_a, double* d_b, double* d
                 sycl::range<1>{64}
             ),
             [=](sycl::nd_item<1> item) SYCL_ESIMD_KERNEL {
-                namespace esimd = sycl::ext::intel::esimd;
                 int i = item.get_global_id(0) * 2 * VL;
 
-                esimd::simd<double, VL> vb1(d_b + i);
-                esimd::simd<double, VL> vc1(d_c + i);
+                sycl::ext::intel::esimd::simd<double, VL> vb1(d_b + i);
+                sycl::ext::intel::esimd::simd<double, VL> vc1(d_c + i);
                 (vb1 + vc1 * 3.0).copy_to(d_a + i);
 
-                esimd::simd<double, VL> vb2(d_b + i + VL);
-                esimd::simd<double, VL> vc2(d_c + i + VL);
+                sycl::ext::intel::esimd::simd<double, VL> vb2(d_b + i + VL);
+                sycl::ext::intel::esimd::simd<double, VL> vc2(d_c + i + VL);
                 (vb2 + vc2 * 3.0).copy_to(d_a + i + VL);
             }
         );
