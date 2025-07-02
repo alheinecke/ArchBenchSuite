@@ -275,14 +275,14 @@ sycl::queue sycl_q; // persistent SYCL queue
 
 #define TUNED
 constexpr int VL = 8;  // Vector length (aligned for 64 byte cache line) 
-static_assert(STREAM_ARRAY_SIZE % VL == 0, "STREAM_ARRAY_SIZE must be a multiple of VL");
+static_assert(STREAM_ARRAY_SIZE % (2*VL) == 0, "STREAM_ARRAY_SIZE must be a multiple of 2*VL");
 
 void tuned_STREAM_Copy_sycl(sycl::queue& q, double* d_a, double* d_c) {
     q.submit([&](sycl::handler& h) {
         h.parallel_for<class StreamCopyESIMD>(
             sycl::nd_range<1>(
                 sycl::range<1>{STREAM_ARRAY_SIZE / (2 * VL)},
-                sycl::range<1>{64}  // Try 32 or 64 too
+                sycl::range<1>{64}
             ),
             [=](sycl::nd_item<1> item) SYCL_ESIMD_KERNEL {
                 int i = item.get_global_id(0) * 2 * VL;
@@ -302,7 +302,7 @@ void tuned_STREAM_Scale_sycl(sycl::queue& q, double* d_c, double* d_b) {
         h.parallel_for<class StreamScaleESIMD>(
             sycl::nd_range<1>(
                 sycl::range<1>{STREAM_ARRAY_SIZE / (2 * VL)},
-                sycl::range<1>{64}  // adjust as needed
+                sycl::range<1>{64} 
             ),
             [=](sycl::nd_item<1> item) SYCL_ESIMD_KERNEL {
                 namespace esimd = sycl::ext::intel::esimd;
