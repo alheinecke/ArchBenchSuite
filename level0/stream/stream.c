@@ -191,17 +191,6 @@
 #define USE_AVX512_PREFETCH
 #endif
 
-#ifdef USESTACK
-static   STREAM_TYPE	a[STREAM_ARRAY_SIZE+OFFSET],
-			b[STREAM_ARRAY_SIZE+OFFSET],
-			c[STREAM_ARRAY_SIZE+OFFSET];
-#else
-#include <stdlib.h>
-STREAM_TYPE* a;
-STREAM_TYPE* b;
-STREAM_TYPE* c;
-#endif
-
 static double	avgtime[4] = {0}, maxtime[4] = {0},
 		mintime[4] = {FLT_MAX,FLT_MAX,FLT_MAX,FLT_MAX};
 
@@ -364,6 +353,21 @@ void tuned_STREAM_Triad_sycl(sycl::queue& q, double* d_a, double* d_b, double* d
 
 #endif
 
+#ifdef USESTACK
+static   STREAM_TYPE	a[STREAM_ARRAY_SIZE+OFFSET],
+			b[STREAM_ARRAY_SIZE+OFFSET],
+			c[STREAM_ARRAY_SIZE+OFFSET];
+#else
+#include <stdlib.h>
+STREAM_TYPE* a;
+STREAM_TYPE* b;
+STREAM_TYPE* c;
+#ifdef USE_SYCL_DEVICE_ALLOC
+STREAM_TYPE* ad;
+STREAM_TYPE* bd;
+STREAM_TYPE* cd;
+#endif
+#endif
 
 #ifdef TUNED
 extern void tuned_STREAM_Copy();
@@ -387,9 +391,26 @@ main()
     /* --- SETUP --- determine precision and check timing --- */
 
 #ifndef USESTACK
+#if defined(USE_SYCL_HOST_ALLOC)
+    a = sycl::malloc_host<double>(STREAM_ARRAY_SIZE, sycl_q);
+    b = sycl::malloc_host<double>(STREAM_ARRAY_SIZE, sycl_q);
+    c = sycl::malloc_host<double>(STREAM_ARRAY_SIZE, sycl_q);
+#elif defined(USE_SYCL_DEVICE_ALLOC)
     posix_memalign((void**)&a, 2097152, ((size_t)STREAM_ARRAY_SIZE)*sizeof(double));
     posix_memalign((void**)&b, 2097152, ((size_t)STREAM_ARRAY_SIZE)*sizeof(double));
     posix_memalign((void**)&c, 2097152, ((size_t)STREAM_ARRAY_SIZE)*sizeof(double));
+    ad = sycl::malloc_device<double>(STREAM_ARRAY_SIZE, sycl_q);
+    bd = sycl::malloc_device<double>(STREAM_ARRAY_SIZE, sycl_q);
+    cd = sycl::malloc_device<double>(STREAM_ARRAY_SIZE, sycl_q);
+#elif defined(USE_SYCL_SHARED_ALLOC)
+    a = sycl::malloc_shared<double>(STREAM_ARRAY_SIZE, sycl_q);
+    b = sycl::malloc_shared<double>(STREAM_ARRAY_SIZE, sycl_q);
+    c = sycl::malloc_shared<double>(STREAM_ARRAY_SIZE, sycl_q);
+#else
+    posix_memalign((void**)&a, 2097152, ((size_t)STREAM_ARRAY_SIZE)*sizeof(double));
+    posix_memalign((void**)&b, 2097152, ((size_t)STREAM_ARRAY_SIZE)*sizeof(double));
+    posix_memalign((void**)&c, 2097152, ((size_t)STREAM_ARRAY_SIZE)*sizeof(double));
+#endif
 #endif
 
     printf(HLINE);
@@ -486,6 +507,11 @@ main()
     printf(HLINE);
     
     /*	--- MAIN LOOP --- repeat test cases NTIMES times --- */
+#if defined(USE_SYCL_DEVICE_ALLOC)
+    sycl_q.memcpy(ad, a, STREAM_ARRAY_SIZE*sizeof(STREAM_TYPE));
+    sycl_q.memcpy(bd, b, STREAM_ARRAY_SIZE*sizeof(STREAM_TYPE));
+    sycl_q.memcpy(cd, c, STREAM_ARRAY_SIZE*sizeof(STREAM_TYPE));
+#endif
 
     scalar = 3.0;
     for (k=0; k<NTIMES; k++)
@@ -531,6 +557,12 @@ main()
 #endif
 	times[3][k] = mysecond() - times[3][k];
 	}
+
+#if defined(USE_SYCL_DEVICE_ALLOC)
+    sycl_q.memcpy(a, ad, STREAM_ARRAY_SIZE*sizeof(STREAM_TYPE));
+    sycl_q.memcpy(b, bd, STREAM_ARRAY_SIZE*sizeof(STREAM_TYPE));
+    sycl_q.memcpy(c, cd, STREAM_ARRAY_SIZE*sizeof(STREAM_TYPE));
+#endif
 
     /*	--- SUMMARY --- */
 
@@ -755,7 +787,11 @@ void tuned_STREAM_Copy()
     std::cout << "Using SYCL queue with USM system allocations: "
               << q.get_device().has(sycl::aspect::usm_system_allocations) << "\n";
 #endif
+#if defined(USE_SYCL_DEVICE_ALLOC)
+    tuned_STREAM_Copy_sycl(sycl_q, ad, cd);
+#else
     tuned_STREAM_Copy_sycl(sycl_q, a, c);
+#endif
     sycl_q.wait();
 #else
         #pragma omp parallel
@@ -840,7 +876,11 @@ void tuned_STREAM_Scale(STREAM_TYPE scalar)
   tuned_STREAM_Scale_cuda<<< blk_in_grid, thr_per_blk >>>(c, b);
   cudaDeviceSynchronize();
 #elif defined(USE_SYCL_USM)
+#if defined(USE_SYCL_DEVICE_ALLOC)
+    tuned_STREAM_Scale_sycl(sycl_q, cd, bd);
+#else
     tuned_STREAM_Scale_sycl(sycl_q, c, b);
+#endif
     sycl_q.wait();
 #else
 #ifdef BENCH_AVX512
@@ -944,7 +984,11 @@ void tuned_STREAM_Add()
   tuned_STREAM_Add_cuda<<< blk_in_grid, thr_per_blk >>>(a, b, c);
   cudaDeviceSynchronize();
 #elif defined(USE_SYCL_USM)
+#if defined(USE_SYCL_DEVICE_ALLOC)
+    tuned_STREAM_Add_sycl(sycl_q, ad, bd, cd);
+#else
     tuned_STREAM_Add_sycl(sycl_q, a, b, c);
+#endif
     sycl_q.wait();
 #else
         #pragma omp parallel
@@ -1039,7 +1083,11 @@ void tuned_STREAM_Triad(STREAM_TYPE scalar)
   tuned_STREAM_Triad_cuda<<< blk_in_grid, thr_per_blk >>>(a, b, c);
   cudaDeviceSynchronize();
 #elif defined(USE_SYCL_USM)
+#if defined(USE_SYCL_DEVICE_ALLOC)
+    tuned_STREAM_Triad_sycl(sycl_q, ad, bd, cd);
+#else
     tuned_STREAM_Triad_sycl(sycl_q, a, b, c);
+#endif
     sycl_q.wait();
 #else
 #ifdef BENCH_AVX512

@@ -88,6 +88,34 @@ EXE=stream_sycl
 SOURCE=stream.c
 endif
 
+ifeq ($(TARGET), sycl_host)
+CC=icpx
+# 8GB
+CFLAGS=-O2 -fsycl -DUSE_SYCL_USM -DUSE_SYCL_HOST_ALLOC -DNTIMES=10 -DSTREAM_ARRAY_SIZE=357916672
+# 16GB
+#CFLAGS=-O2 -fsycl -DUSE_SYCL_USM -DUSE_SYCL_HOST_ALLOC -DNTIMES=5 -DSTREAM_ARRAY_SIZE=715833344
+# 32GB
+#CFLAGS=-O2 -fsycl -DUSE_SYCL_USM -DUSE_SYCL_HOST_ALLOC -DNTIMES=5 -DSTREAM_ARRAY_SIZE=1431655424
+EXE=stream_sycl_host
+SOURCE=stream.c
+endif
+
+ifeq ($(TARGET), sycl_device)
+CC=icpx
+# 8GB
+CFLAGS=-O2 -fsycl -DUSE_SYCL_USM -DUSE_SYCL_DEVICE_ALLOC -DNTIMES=10 -DSTREAM_ARRAY_SIZE=357916672
+EXE=stream_sycl_device
+SOURCE=stream.c
+endif
+
+ifeq ($(TARGET), sycl_shared)
+CC=icpx
+# 8GB
+CFLAGS=-O2 -fsycl -DUSE_SYCL_USM -DUSE_SYCL_SHARED_ALLOC -DNTIMES=10 -DSTREAM_ARRAY_SIZE=357916672
+EXE=stream_sycl_shared
+SOURCE=stream.c
+endif
+
 ifeq ($(TARGET), armv8)
 CFLAGS=-O2 -fopenmp -DBENCH_ARMV8 -DNTIMES=100 -DSTREAM_ARRAY_SIZE=73728000 -march=armv8-a -fstrict-aliasing
 EXE=stream_armv8
