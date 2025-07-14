@@ -367,6 +367,11 @@ STREAM_TYPE* ad;
 STREAM_TYPE* bd;
 STREAM_TYPE* cd;
 #endif
+#ifdef USE_CUDA_DEVICE_ALLOC
+STREAM_TYPE* ad;
+STREAM_TYPE* bd;
+STREAM_TYPE* cd;
+#endif
 #endif
 
 #ifdef TUNED
@@ -406,13 +411,23 @@ main()
     a = sycl::malloc_shared<double>(STREAM_ARRAY_SIZE, sycl_q);
     b = sycl::malloc_shared<double>(STREAM_ARRAY_SIZE, sycl_q);
     c = sycl::malloc_shared<double>(STREAM_ARRAY_SIZE, sycl_q);
+#elif defined(USE_CUDA_HOST_ALLOC)
+    cudaHostAlloc((void**)&a, ((size_t)STREAM_ARRAY_SIZE)*sizeof(double), cudaHostAllocMapped );
+    cudaHostAlloc((void**)&b, ((size_t)STREAM_ARRAY_SIZE)*sizeof(double), cudaHostAllocMapped );
+    cudaHostAlloc((void**)&c, ((size_t)STREAM_ARRAY_SIZE)*sizeof(double), cudaHostAllocMapped );
+#elif defined(USE_CUDA_DEVICE_ALLOC)
+    posix_memalign((void**)&a, 2097152, ((size_t)STREAM_ARRAY_SIZE)*sizeof(double));
+    posix_memalign((void**)&b, 2097152, ((size_t)STREAM_ARRAY_SIZE)*sizeof(double));
+    posix_memalign((void**)&c, 2097152, ((size_t)STREAM_ARRAY_SIZE)*sizeof(double));
+    cudaMalloc((void**)&ad, ((size_t)STREAM_ARRAY_SIZE)*sizeof(double) );
+    cudaMalloc((void**)&bd, ((size_t)STREAM_ARRAY_SIZE)*sizeof(double) );
+    cudaMalloc((void**)&cd, ((size_t)STREAM_ARRAY_SIZE)*sizeof(double) );
 #else
     posix_memalign((void**)&a, 2097152, ((size_t)STREAM_ARRAY_SIZE)*sizeof(double));
     posix_memalign((void**)&b, 2097152, ((size_t)STREAM_ARRAY_SIZE)*sizeof(double));
     posix_memalign((void**)&c, 2097152, ((size_t)STREAM_ARRAY_SIZE)*sizeof(double));
 #endif
 #endif
-
     printf(HLINE);
     printf("STREAM version $Revision: 5.10 $\n");
     printf(HLINE);
@@ -508,9 +523,14 @@ main()
     
     /*	--- MAIN LOOP --- repeat test cases NTIMES times --- */
 #if defined(USE_SYCL_DEVICE_ALLOC)
-    sycl_q.memcpy(ad, a, STREAM_ARRAY_SIZE*sizeof(STREAM_TYPE));
-    sycl_q.memcpy(bd, b, STREAM_ARRAY_SIZE*sizeof(STREAM_TYPE));
-    sycl_q.memcpy(cd, c, STREAM_ARRAY_SIZE*sizeof(STREAM_TYPE));
+    sycl_q.memcpy(ad, a, ((size_t)STREAM_ARRAY_SIZE)*sizeof(STREAM_TYPE));
+    sycl_q.memcpy(bd, b, ((size_t)STREAM_ARRAY_SIZE)*sizeof(STREAM_TYPE));
+    sycl_q.memcpy(cd, c, ((size_t)STREAM_ARRAY_SIZE)*sizeof(STREAM_TYPE));
+#endif
+#if defined(USE_CUDA_DEVICE_ALLOC)
+    cudaMemcpy( ad, a, ((size_t)STREAM_ARRAY_SIZE)*sizeof(STREAM_TYPE), cudaMemcpyHostToDevice );
+    cudaMemcpy( bd, b, ((size_t)STREAM_ARRAY_SIZE)*sizeof(STREAM_TYPE), cudaMemcpyHostToDevice );
+    cudaMemcpy( cd, c, ((size_t)STREAM_ARRAY_SIZE)*sizeof(STREAM_TYPE), cudaMemcpyHostToDevice );
 #endif
 
     scalar = 3.0;
@@ -559,10 +579,16 @@ main()
 	}
 
 #if defined(USE_SYCL_DEVICE_ALLOC)
-    sycl_q.memcpy(a, ad, STREAM_ARRAY_SIZE*sizeof(STREAM_TYPE));
-    sycl_q.memcpy(b, bd, STREAM_ARRAY_SIZE*sizeof(STREAM_TYPE));
-    sycl_q.memcpy(c, cd, STREAM_ARRAY_SIZE*sizeof(STREAM_TYPE));
+    sycl_q.memcpy(a, ad, ((size_t)STREAM_ARRAY_SIZE)*sizeof(STREAM_TYPE));
+    sycl_q.memcpy(b, bd, ((size_t)STREAM_ARRAY_SIZE)*sizeof(STREAM_TYPE));
+    sycl_q.memcpy(c, cd, ((size_t)STREAM_ARRAY_SIZE)*sizeof(STREAM_TYPE));
 #endif
+#if defined(USE_CUDA_DEVICE_ALLOC)
+    cudaMemcpy( a, ad, ((size_t)STREAM_ARRAY_SIZE)*sizeof(STREAM_TYPE), cudaMemcpyDeviceToHost );
+    cudaMemcpy( b, bd, ((size_t)STREAM_ARRAY_SIZE)*sizeof(STREAM_TYPE), cudaMemcpyDeviceToHost );
+    cudaMemcpy( c, cd, ((size_t)STREAM_ARRAY_SIZE)*sizeof(STREAM_TYPE), cudaMemcpyDeviceToHost );
+#endif
+
 
     /*	--- SUMMARY --- */
 
@@ -775,7 +801,11 @@ void tuned_STREAM_Copy()
 	int thr_per_blk = CUDA_THREAD_PER_BLOCK;
 	int blk_in_grid = ceil( float(STREAM_ARRAY_SIZE) / thr_per_blk );
 
+#if defined(USE_CUDA_DEVICE_ALLOC)
+  tuned_STREAM_Copy_cuda<<< blk_in_grid, thr_per_blk >>>(ad, cd);
+#else
   tuned_STREAM_Copy_cuda<<< blk_in_grid, thr_per_blk >>>(a, c);
+#endif
   cudaDeviceSynchronize();
 #elif defined(USE_SYCL_USM)
 #if 0
@@ -873,7 +903,11 @@ void tuned_STREAM_Scale(STREAM_TYPE scalar)
 	int thr_per_blk = CUDA_THREAD_PER_BLOCK;
 	int blk_in_grid = ceil( float(STREAM_ARRAY_SIZE) / thr_per_blk );
 
+#if defined(USE_CUDA_DEVICE_ALLOC)
+  tuned_STREAM_Scale_cuda<<< blk_in_grid, thr_per_blk >>>(cd, bd);
+#else
   tuned_STREAM_Scale_cuda<<< blk_in_grid, thr_per_blk >>>(c, b);
+#endif
   cudaDeviceSynchronize();
 #elif defined(USE_SYCL_USM)
 #if defined(USE_SYCL_DEVICE_ALLOC)
@@ -981,7 +1015,11 @@ void tuned_STREAM_Add()
 	int thr_per_blk = CUDA_THREAD_PER_BLOCK;
 	int blk_in_grid = ceil( float(STREAM_ARRAY_SIZE) / thr_per_blk );
 
+#if defined(USE_CUDA_DEVICE_ALLOC)
+  tuned_STREAM_Add_cuda<<< blk_in_grid, thr_per_blk >>>(ad, bd, cd);
+#else
   tuned_STREAM_Add_cuda<<< blk_in_grid, thr_per_blk >>>(a, b, c);
+#endif
   cudaDeviceSynchronize();
 #elif defined(USE_SYCL_USM)
 #if defined(USE_SYCL_DEVICE_ALLOC)
@@ -1080,7 +1118,11 @@ void tuned_STREAM_Triad(STREAM_TYPE scalar)
 	int thr_per_blk = CUDA_THREAD_PER_BLOCK;
 	int blk_in_grid = ceil( float(STREAM_ARRAY_SIZE) / thr_per_blk );
 
+#if defined(USE_CUDA_DEVICE_ALLOC)
+  tuned_STREAM_Triad_cuda<<< blk_in_grid, thr_per_blk >>>(ad, bd, cd);
+#else
   tuned_STREAM_Triad_cuda<<< blk_in_grid, thr_per_blk >>>(a, b, c);
+#endif
   cudaDeviceSynchronize();
 #elif defined(USE_SYCL_USM)
 #if defined(USE_SYCL_DEVICE_ALLOC)

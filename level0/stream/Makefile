@@ -76,6 +76,24 @@ EXE=stream_cuda
 SOURCE=stream.cu
 endif
 
+ifeq ($(TARGET), cuda_host)
+CC=nvcc
+# 16GB
+#CFLAGS=-O2 -DUSE_CUDA_HMM -DUSE_CUDA_HOST_ALLOC -DNTIMES=10 -DSTREAM_ARRAY_SIZE=715833344 -allow-unsupported-compiler
+# 32GB
+CFLAGS=-O2 -DUSE_CUDA_HMM -DUSE_CUDA_HOST_ALLOC -DNTIMES=5 -DSTREAM_ARRAY_SIZE=1431655424 -allow-unsupported-compiler
+EXE=stream_cuda_host
+SOURCE=stream.cu
+endif
+
+ifeq ($(TARGET), cuda_device)
+CC=nvcc
+# 16GB
+CFLAGS=-O2 -DUSE_CUDA_HMM -DUSE_CUDA_DEVICE_ALLOC -DNTIMES=100 -DSTREAM_ARRAY_SIZE=715833344 -allow-unsupported-compiler
+EXE=stream_cuda_device
+SOURCE=stream.cu
+endif
+
 ifeq ($(TARGET), sycl)
 CC=icpx
 # 8GB
@@ -133,6 +151,12 @@ endif
 
 default: stream.c
 ifeq ($(TARGET), cuda)
+	cp stream.c stream.cu
+endif
+ifeq ($(TARGET), cuda_host)
+	cp stream.c stream.cu
+endif
+ifeq ($(TARGET), cuda_device)
 	cp stream.c stream.cu
 endif
 	$(CC) $(CFLAGS) -o $(EXE) $(SOURCE)
