@@ -179,9 +179,13 @@
 # define MAX(x,y) ((x)>(y)?(x):(y))
 # endif
 
-#ifndef STREAM_TYPE
-#define STREAM_TYPE double
+#if !defined(STREAM_TYPE) && defined(USE_FLOAT)
+    #define STREAM_TYPE float
+#elif !defined(STREAM_TYPE)
+    #define STREAM_TYPE double
 #endif
+
+
 
 #if 0
 #define USESTACK
@@ -229,27 +233,27 @@ extern void checkSTREAMresults();
 
 #define CUDA_THREAD_PER_BLOCK 256
 #define TUNED
-__global__ void tuned_STREAM_Copy_cuda(double* d_a, double* d_c);
-__global__ void tuned_STREAM_Scale_cuda(double* d_c, double* d_b);
-__global__ void tuned_STREAM_Add_cuda(double* d_a, double* d_b, double* d_c);
-__global__ void tuned_STREAM_Triad_cuda(double* d_a, double* d_b, double* d_c);
+__global__ void tuned_STREAM_Copy_cuda(STREAM_TYPE* d_a, STREAM_TYPE* d_c);
+__global__ void tuned_STREAM_Scale_cuda(STREAM_TYPE* d_c, STREAM_TYPE* d_b);
+__global__ void tuned_STREAM_Add_cuda(STREAM_TYPE* d_a, STREAM_TYPE* d_b, STREAM_TYPE* d_c);
+__global__ void tuned_STREAM_Triad_cuda(STREAM_TYPE* d_a, STREAM_TYPE* d_b, STREAM_TYPE* d_c);
 
-__global__ void tuned_STREAM_Copy_cuda(double* d_a, double* d_c) {
+__global__ void tuned_STREAM_Copy_cuda(STREAM_TYPE* d_a, STREAM_TYPE* d_c) {
 	int id = blockDim.x * blockIdx.x + threadIdx.x;
 	if(id < STREAM_ARRAY_SIZE) d_c[id] = d_a[id];
 }
 
-__global__ void tuned_STREAM_Scale_cuda(double* d_c, double* d_b) {
+__global__ void tuned_STREAM_Scale_cuda(STREAM_TYPE* d_c, STREAM_TYPE* d_b) {
 	int id = blockDim.x * blockIdx.x + threadIdx.x;
 	if(id < STREAM_ARRAY_SIZE) d_b[id] = 3.0 * d_c[id];
 }
 
-__global__ void tuned_STREAM_Add_cuda(double* d_a, double* d_b, double* d_c) {
+__global__ void tuned_STREAM_Add_cuda(STREAM_TYPE* d_a, STREAM_TYPE* d_b, STREAM_TYPE* d_c) {
 	int id = blockDim.x * blockIdx.x + threadIdx.x;
 	if(id < STREAM_ARRAY_SIZE) d_c[id] = d_a[id] + d_b[id];
 }
 
-__global__ void tuned_STREAM_Triad_cuda(double* d_a, double* d_b, double* d_c) {
+__global__ void tuned_STREAM_Triad_cuda(STREAM_TYPE* d_a, STREAM_TYPE* d_b, STREAM_TYPE* d_c) {
 	int id = blockDim.x * blockIdx.x + threadIdx.x;
 	if(id < STREAM_ARRAY_SIZE) d_a[id] = d_b[id] + 3.0 * d_c[id];
 }
@@ -263,10 +267,14 @@ __global__ void tuned_STREAM_Triad_cuda(double* d_a, double* d_b, double* d_c) {
 sycl::queue sycl_q; // persistent SYCL queue
 
 #define TUNED
-constexpr int VL = 8;  // Vector length (aligned for 64 byte cache line) 
+#ifdef USE_FLOAT
+    constexpr int VL = 16; // Vector length (aligned for 64 byte cache line) 
+#else
+    constexpr int VL = 8; // Vector length (aligned for 64 byte cache line) 
+#endif
 static_assert(STREAM_ARRAY_SIZE % (2*VL) == 0, "STREAM_ARRAY_SIZE must be a multiple of 2*VL");
 
-void tuned_STREAM_Copy_sycl(sycl::queue& q, double* d_a, double* d_c) {
+void tuned_STREAM_Copy_sycl(sycl::queue& q, STREAM_TYPE* d_a, STREAM_TYPE* d_c) {
     q.submit([&](sycl::handler& h) {
         h.parallel_for<class StreamCopyESIMD>(
             sycl::nd_range<1>(
@@ -276,8 +284,8 @@ void tuned_STREAM_Copy_sycl(sycl::queue& q, double* d_a, double* d_c) {
             [=](sycl::nd_item<1> item) SYCL_ESIMD_KERNEL {
                 int i = item.get_global_id(0) * 2 * VL;
 
-                sycl::ext::intel::esimd::simd<double, VL> va1(d_a + i);
-                sycl::ext::intel::esimd::simd<double, VL> va2(d_a + i + VL);
+                sycl::ext::intel::esimd::simd<STREAM_TYPE, VL> va1(d_a + i);
+                sycl::ext::intel::esimd::simd<STREAM_TYPE, VL> va2(d_a + i + VL);
 
                 va1.copy_to(d_c + i);
                 va2.copy_to(d_c + i + VL);
@@ -286,7 +294,7 @@ void tuned_STREAM_Copy_sycl(sycl::queue& q, double* d_a, double* d_c) {
     });
 }
 
-void tuned_STREAM_Scale_sycl(sycl::queue& q, double* d_c, double* d_b) {
+void tuned_STREAM_Scale_sycl(sycl::queue& q, STREAM_TYPE* d_c, STREAM_TYPE* d_b) {
     q.submit([&](sycl::handler& h) {
         h.parallel_for<class StreamScaleESIMD>(
             sycl::nd_range<1>(
@@ -296,17 +304,17 @@ void tuned_STREAM_Scale_sycl(sycl::queue& q, double* d_c, double* d_b) {
             [=](sycl::nd_item<1> item) SYCL_ESIMD_KERNEL {
                 int i = item.get_global_id(0) * 2 * VL;
 
-                sycl::ext::intel::esimd::simd<double, VL> vc1(d_c + i);
-                sycl::ext::intel::esimd::simd<double, VL> vc2(d_c + i + VL);
+                sycl::ext::intel::esimd::simd<STREAM_TYPE, VL> vc1(d_c + i);
+                sycl::ext::intel::esimd::simd<STREAM_TYPE, VL> vc2(d_c + i + VL);
 
-                (vc1 * 3.0).copy_to(d_b + i);
-                (vc2 * 3.0).copy_to(d_b + i + VL);
+                (vc1 * STREAM_TYPE{3.0}).copy_to(d_b + i);
+                (vc2 * STREAM_TYPE{3.0}).copy_to(d_b + i + VL);
             }
         );
     });
 }
 
-void tuned_STREAM_Add_sycl(sycl::queue& q, double* d_a, double* d_b, double* d_c) {
+void tuned_STREAM_Add_sycl(sycl::queue& q, STREAM_TYPE* d_a, STREAM_TYPE* d_b, STREAM_TYPE* d_c) {
     q.submit([&](sycl::handler& h) {
         h.parallel_for<class StreamAddESIMD>(
             sycl::nd_range<1>(
@@ -316,12 +324,12 @@ void tuned_STREAM_Add_sycl(sycl::queue& q, double* d_a, double* d_b, double* d_c
             [=](sycl::nd_item<1> item) SYCL_ESIMD_KERNEL {
                 int i = item.get_global_id(0) * 2 * VL;
 
-                sycl::ext::intel::esimd::simd<double, VL> va1(d_a + i);
-                sycl::ext::intel::esimd::simd<double, VL> vb1(d_b + i);
+                sycl::ext::intel::esimd::simd<STREAM_TYPE, VL> va1(d_a + i);
+                sycl::ext::intel::esimd::simd<STREAM_TYPE, VL> vb1(d_b + i);
                 (va1 + vb1).copy_to(d_c + i);
 
-                sycl::ext::intel::esimd::simd<double, VL> va2(d_a + i + VL);
-                sycl::ext::intel::esimd::simd<double, VL> vb2(d_b + i + VL);
+                sycl::ext::intel::esimd::simd<STREAM_TYPE, VL> va2(d_a + i + VL);
+                sycl::ext::intel::esimd::simd<STREAM_TYPE, VL> vb2(d_b + i + VL);
                 (va2 + vb2).copy_to(d_c + i + VL);
             }
         );
@@ -329,7 +337,7 @@ void tuned_STREAM_Add_sycl(sycl::queue& q, double* d_a, double* d_b, double* d_c
 }
 
 
-void tuned_STREAM_Triad_sycl(sycl::queue& q, double* d_a, double* d_b, double* d_c) {
+void tuned_STREAM_Triad_sycl(sycl::queue& q, STREAM_TYPE* d_a, STREAM_TYPE* d_b, STREAM_TYPE* d_c) {
     q.submit([&](sycl::handler& h) {
         h.parallel_for<class StreamTriadESIMD>(
             sycl::nd_range<1>(
@@ -339,13 +347,13 @@ void tuned_STREAM_Triad_sycl(sycl::queue& q, double* d_a, double* d_b, double* d
             [=](sycl::nd_item<1> item) SYCL_ESIMD_KERNEL {
                 int i = item.get_global_id(0) * 2 * VL;
 
-                sycl::ext::intel::esimd::simd<double, VL> vb1(d_b + i);
-                sycl::ext::intel::esimd::simd<double, VL> vc1(d_c + i);
-                (vb1 + vc1 * 3.0).copy_to(d_a + i);
+                sycl::ext::intel::esimd::simd<STREAM_TYPE, VL> vb1(d_b + i);
+                sycl::ext::intel::esimd::simd<STREAM_TYPE, VL> vc1(d_c + i);
+                (vb1 + vc1 * STREAM_TYPE{3.0}).copy_to(d_a + i);
 
-                sycl::ext::intel::esimd::simd<double, VL> vb2(d_b + i + VL);
-                sycl::ext::intel::esimd::simd<double, VL> vc2(d_c + i + VL);
-                (vb2 + vc2 * 3.0).copy_to(d_a + i + VL);
+                sycl::ext::intel::esimd::simd<STREAM_TYPE, VL> vb2(d_b + i + VL);
+                sycl::ext::intel::esimd::simd<STREAM_TYPE, VL> vc2(d_c + i + VL);
+                (vb2 + vc2 * STREAM_TYPE{3.0}).copy_to(d_a + i + VL);
             }
         );
     });
@@ -397,35 +405,35 @@ main()
 
 #ifndef USESTACK
 #if defined(USE_SYCL_HOST_ALLOC)
-    a = sycl::malloc_host<double>(STREAM_ARRAY_SIZE, sycl_q);
-    b = sycl::malloc_host<double>(STREAM_ARRAY_SIZE, sycl_q);
-    c = sycl::malloc_host<double>(STREAM_ARRAY_SIZE, sycl_q);
+    a = sycl::malloc_host<STREAM_TYPE>(STREAM_ARRAY_SIZE, sycl_q);
+    b = sycl::malloc_host<STREAM_TYPE>(STREAM_ARRAY_SIZE, sycl_q);
+    c = sycl::malloc_host<STREAM_TYPE>(STREAM_ARRAY_SIZE, sycl_q);
 #elif defined(USE_SYCL_DEVICE_ALLOC)
-    posix_memalign((void**)&a, 2097152, ((size_t)STREAM_ARRAY_SIZE)*sizeof(double));
-    posix_memalign((void**)&b, 2097152, ((size_t)STREAM_ARRAY_SIZE)*sizeof(double));
-    posix_memalign((void**)&c, 2097152, ((size_t)STREAM_ARRAY_SIZE)*sizeof(double));
-    ad = sycl::malloc_device<double>(STREAM_ARRAY_SIZE, sycl_q);
-    bd = sycl::malloc_device<double>(STREAM_ARRAY_SIZE, sycl_q);
-    cd = sycl::malloc_device<double>(STREAM_ARRAY_SIZE, sycl_q);
+    posix_memalign((void**)&a, 2097152, ((size_t)STREAM_ARRAY_SIZE)*sizeof(STREAM_TYPE));
+    posix_memalign((void**)&b, 2097152, ((size_t)STREAM_ARRAY_SIZE)*sizeof(STREAM_TYPE));
+    posix_memalign((void**)&c, 2097152, ((size_t)STREAM_ARRAY_SIZE)*sizeof(STREAM_TYPE));
+    ad = sycl::malloc_device<STREAM_TYPE>(STREAM_ARRAY_SIZE, sycl_q);
+    bd = sycl::malloc_device<STREAM_TYPE>(STREAM_ARRAY_SIZE, sycl_q);
+    cd = sycl::malloc_device<STREAM_TYPE>(STREAM_ARRAY_SIZE, sycl_q);
 #elif defined(USE_SYCL_SHARED_ALLOC)
-    a = sycl::malloc_shared<double>(STREAM_ARRAY_SIZE, sycl_q);
-    b = sycl::malloc_shared<double>(STREAM_ARRAY_SIZE, sycl_q);
-    c = sycl::malloc_shared<double>(STREAM_ARRAY_SIZE, sycl_q);
+    a = sycl::malloc_shared<STREAM_TYPE>(STREAM_ARRAY_SIZE, sycl_q);
+    b = sycl::malloc_shared<STREAM_TYPE>(STREAM_ARRAY_SIZE, sycl_q);
+    c = sycl::malloc_shared<STREAM_TYPE>(STREAM_ARRAY_SIZE, sycl_q);
 #elif defined(USE_CUDA_HOST_ALLOC)
-    cudaHostAlloc((void**)&a, ((size_t)STREAM_ARRAY_SIZE)*sizeof(double), cudaHostAllocMapped );
-    cudaHostAlloc((void**)&b, ((size_t)STREAM_ARRAY_SIZE)*sizeof(double), cudaHostAllocMapped );
-    cudaHostAlloc((void**)&c, ((size_t)STREAM_ARRAY_SIZE)*sizeof(double), cudaHostAllocMapped );
+    cudaHostAlloc((void**)&a, ((size_t)STREAM_ARRAY_SIZE)*sizeof(STREAM_TYPE), cudaHostAllocMapped );
+    cudaHostAlloc((void**)&b, ((size_t)STREAM_ARRAY_SIZE)*sizeof(STREAM_TYPE), cudaHostAllocMapped );
+    cudaHostAlloc((void**)&c, ((size_t)STREAM_ARRAY_SIZE)*sizeof(STREAM_TYPE), cudaHostAllocMapped );
 #elif defined(USE_CUDA_DEVICE_ALLOC)
-    posix_memalign((void**)&a, 2097152, ((size_t)STREAM_ARRAY_SIZE)*sizeof(double));
-    posix_memalign((void**)&b, 2097152, ((size_t)STREAM_ARRAY_SIZE)*sizeof(double));
-    posix_memalign((void**)&c, 2097152, ((size_t)STREAM_ARRAY_SIZE)*sizeof(double));
-    cudaMalloc((void**)&ad, ((size_t)STREAM_ARRAY_SIZE)*sizeof(double) );
-    cudaMalloc((void**)&bd, ((size_t)STREAM_ARRAY_SIZE)*sizeof(double) );
-    cudaMalloc((void**)&cd, ((size_t)STREAM_ARRAY_SIZE)*sizeof(double) );
+    posix_memalign((void**)&a, 2097152, ((size_t)STREAM_ARRAY_SIZE)*sizeof(STREAM_TYPE));
+    posix_memalign((void**)&b, 2097152, ((size_t)STREAM_ARRAY_SIZE)*sizeof(STREAM_TYPE));
+    posix_memalign((void**)&c, 2097152, ((size_t)STREAM_ARRAY_SIZE)*sizeof(STREAM_TYPE));
+    cudaMalloc((void**)&ad, ((size_t)STREAM_ARRAY_SIZE)*sizeof(STREAM_TYPE) );
+    cudaMalloc((void**)&bd, ((size_t)STREAM_ARRAY_SIZE)*sizeof(STREAM_TYPE) );
+    cudaMalloc((void**)&cd, ((size_t)STREAM_ARRAY_SIZE)*sizeof(STREAM_TYPE) );
 #else
-    posix_memalign((void**)&a, 2097152, ((size_t)STREAM_ARRAY_SIZE)*sizeof(double));
-    posix_memalign((void**)&b, 2097152, ((size_t)STREAM_ARRAY_SIZE)*sizeof(double));
-    posix_memalign((void**)&c, 2097152, ((size_t)STREAM_ARRAY_SIZE)*sizeof(double));
+    posix_memalign((void**)&a, 2097152, ((size_t)STREAM_ARRAY_SIZE)*sizeof(STREAM_TYPE));
+    posix_memalign((void**)&b, 2097152, ((size_t)STREAM_ARRAY_SIZE)*sizeof(STREAM_TYPE));
+    posix_memalign((void**)&c, 2097152, ((size_t)STREAM_ARRAY_SIZE)*sizeof(STREAM_TYPE));
 #endif
 #endif
     printf(HLINE);
@@ -526,6 +534,7 @@ main()
     sycl_q.memcpy(ad, a, ((size_t)STREAM_ARRAY_SIZE)*sizeof(STREAM_TYPE));
     sycl_q.memcpy(bd, b, ((size_t)STREAM_ARRAY_SIZE)*sizeof(STREAM_TYPE));
     sycl_q.memcpy(cd, c, ((size_t)STREAM_ARRAY_SIZE)*sizeof(STREAM_TYPE));
+    sycl_q.wait();
 #endif
 #if defined(USE_CUDA_DEVICE_ALLOC)
     cudaMemcpy( ad, a, ((size_t)STREAM_ARRAY_SIZE)*sizeof(STREAM_TYPE), cudaMemcpyHostToDevice );
@@ -582,6 +591,7 @@ main()
     sycl_q.memcpy(a, ad, ((size_t)STREAM_ARRAY_SIZE)*sizeof(STREAM_TYPE));
     sycl_q.memcpy(b, bd, ((size_t)STREAM_ARRAY_SIZE)*sizeof(STREAM_TYPE));
     sycl_q.memcpy(c, cd, ((size_t)STREAM_ARRAY_SIZE)*sizeof(STREAM_TYPE));
+    sycl_q.wait();
 #endif
 #if defined(USE_CUDA_DEVICE_ALLOC)
     cudaMemcpy( a, ad, ((size_t)STREAM_ARRAY_SIZE)*sizeof(STREAM_TYPE), cudaMemcpyDeviceToHost );
@@ -835,7 +845,15 @@ void tuned_STREAM_Copy()
           ssize_t start = 0;
 #endif          
 
-#ifdef BENCH_AVX512
+#if defined(BENCH_AVX512) && defined(USE_FLOAT)
+      for (j=start; j< start+chunk; j+=16) {
+#ifdef USE_AVX512_PREFETCH
+            _mm_prefetch( (void*) &a[j+256], _MM_HINT_T2 );
+            _mm_prefetch( (void*) &a[j+32], _MM_HINT_T1 );
+#endif
+            _mm512_stream_ps(&c[j], _mm512_load_ps(&a[j]));
+      }
+#elif defined(BENCH_AVX512)
 	  for (j=start; j< start+chunk; j+=8) {
 #ifdef USE_AVX512_PREFETCH
             _mm_prefetch( (void*) &a[j+128], _MM_HINT_T2 );
@@ -844,25 +862,46 @@ void tuned_STREAM_Copy()
             _mm512_stream_pd(&c[j], _mm512_load_pd(&a[j]));
     }
 #endif
-#ifdef BENCH_AVX
+#if defined(BENCH_AVX) && defined(USE_FLOAT)
+      for (j=start; j< start+chunk; j+=8)
+        _mm256_stream_ps(&c[j], _mm256_load_ps(&a[j]));
+#elif defined(BENCH_AVX)
 	  for (j=start; j< start+chunk; j+=4)
             _mm256_stream_pd(&c[j], _mm256_load_pd(&a[j]));
 #endif
-#ifdef BENCH_SSE
+#if defined(BENCH_SSE) && defined(USE_FLOAT)
+        for (j=start; j< start+chunk; j+=4)
+            _mm_stream_ps(&c[j], _mm_load_ps(&a[j]));
+#elif defined(BENCH_SSE)
 	  for (j=start; j< start+chunk; j+=2)
             _mm_stream_pd(&c[j], _mm_load_pd(&a[j]));
 #endif
-#ifdef BENCH_POWER8
+#if defined(BENCH_POWER8) && defined(USE_FLOAT)
+        for (j=start; j< start+chunk; j+=4)
+            vec_vsx_st(vec_vsx_ld(0, &a[j]), 0, &c[j]);
+#elif defined(BENCH_POWER8)
 	  for (j=start; j< start+chunk; j+=2)
             vec_vsx_st(vec_vsx_ld(0, &a[j]), 0, &c[j]);
 #endif
-#ifdef BENCH_RV64
+#if defined(BENCH_RV64) && defined(USE_FLOAT)
+      size_t gvl = __riscv_vsetvl_e32m1(32);
+      for (j=start; j< start+chunk; j+=2){
+            __riscv_vse32_v_f32m1(&c[j], __riscv_vle32_v_f32m1((&a[j]), gvl), gvl);
+      }
+#elif defined(BENCH_RV64)
     size_t gvl = __riscv_vsetvl_e64m1(16);
 	  for (j=start; j< start+chunk; j+=2){
             __riscv_vse64_v_f64m1(&c[j], __riscv_vle64_v_f64m1((&a[j]), gvl), gvl);
     }
 #endif
-#ifdef BENCH_ARMV8
+#if defined(BENCH_ARMV8) && defined(USE_FLOAT)
+        for (j=start; j< start+chunk; j+=8) {
+            float32x4_t va1 = vld1q_f32(&a[j]);
+            vst1q_f32(&c[j], va1);
+            float32x4_t va2 = vld1q_f32(&a[j+4]);
+            vst1q_f32(&c[j+4], va2);
+        }
+#elif defined(BENCH_ARMV8)
         __asm__ __volatile__("mov x0, %0\n\t"  // a
                              "mov x1, %1\n\t"  // c
                              "mov x4, %2\n\t"  // chunk
@@ -917,22 +956,34 @@ void tuned_STREAM_Scale(STREAM_TYPE scalar)
 #endif
     sycl_q.wait();
 #else
-#ifdef BENCH_AVX512
+#if defined(BENCH_AVX512) && defined(USE_FLOAT)
+        __m512 vecscalar = _mm512_set1_ps(scalar);
+#elif defined(BENCH_AVX512)
         __m512d vecscalar = _mm512_set1_pd(scalar);
 #endif
-#ifdef BENCH_AVX
+#if defined(BENCH_AVX) && defined(USE_FLOAT)
+        __m256 vecscalar = _mm256_set1_ps(scalar);
+#elif defined(BENCH_AVX)
         __m256d vecscalar = _mm256_set1_pd(scalar);
 #endif
-#ifdef BENCH_SSE
+#if defined(BENCH_SSE) && defined(USE_FLOAT)
+        __m128 vecscalar = _mm_set1_ps(scalar);
+#elif defined(BENCH_SSE)
         __m128d vecscalar = _mm_set1_pd(scalar);
 #endif
-#ifdef BENCH_POWER8
-        __attribute__((aligned(128))) STREAM_TYPE pumped_scalar[2] = {scalar, scalar};
-        vector double vecscalar = vec_vsx_ld(0, pumped_scalar);
+#if defined(BENCH_POWER8) && defined(USE_FLOAT)
+    __attribute__((aligned(128))) STREAM_TYPE pumped_scalar[4] = { scalar, scalar, scalar, scalar };
+    vector float vecscalar = vec_vsx_ld(0, (const unsigned char*)pumped_scalar);   // <— FIXED
+#elif defined(BENCH_POWER8)      /* double precision */
+    __attribute__((aligned(128))) STREAM_TYPE pumped_scalar[2] = { scalar, scalar };
+    vector double vecscalar = vec_vsx_ld(0, (const unsigned char*)pumped_scalar);   // <— FIXED
 #endif
-#ifdef BENCH_RV64
-    size_t gvl = __riscv_vsetvl_e64m1(16);
-    double vecscalar = scalar;
+#if defined(BENCH_RV64) && defined(USE_FLOAT)
+        size_t gvl = __riscv_vsetvl_e32m1(32);
+        STREAM_TYPE vecscalar = scalar;
+#elif defined(BENCH_RV64)
+        size_t gvl = __riscv_vsetvl_e64m1(16);
+        STREAM_TYPE vecscalar = scalar;
 #endif
 
         #pragma omp parallel
@@ -947,27 +998,56 @@ void tuned_STREAM_Scale(STREAM_TYPE scalar)
 
 #endif     
 
-#ifdef BENCH_AVX512
-	  for (j=start; j< start+chunk; j+=8)
-            _mm512_stream_pd(&b[j], _mm512_mul_pd(vecscalar, _mm512_load_pd(&c[j])));
+#if defined(BENCH_AVX512) && defined(USE_FLOAT)
+    for (j=start; j< start+chunk; j+=16)
+            _mm512_stream_ps(&b[j], _mm512_mul_ps(vecscalar, _mm512_load_ps(&c[j])));
+#elif defined(BENCH_AVX512)
+    for (j=start; j< start+chunk; j+=8)
+        _mm512_stream_pd(&b[j], _mm512_mul_pd(vecscalar, _mm512_load_pd(&c[j])));
 #endif 
-#ifdef BENCH_AVX    
+#if defined(BENCH_AVX) && defined(USE_FLOAT)
+      for (j=start; j< start+chunk; j+=8)
+            _mm256_stream_ps(&b[j], _mm256_mul_ps(vecscalar, _mm256_load_ps(&c[j])));
+#elif defined(BENCH_AVX)    
 	  for (j=start; j< start+chunk; j+=4)
             _mm256_stream_pd(&b[j], _mm256_mul_pd(vecscalar, _mm256_load_pd(&c[j])));
 #endif
-#ifdef BENCH_SSE    
+#if defined(BENCH_SSE) && defined(USE_FLOAT)
+	  for (j=start; j< start+chunk; j+=4)
+            _mm_stream_ps(&b[j], _mm_mul_ps(vecscalar, _mm_load_ps(&c[j])));
+#elif defined(BENCH_SSE)
 	  for (j=start; j< start+chunk; j+=2)
             _mm_stream_pd(&b[j], _mm_mul_pd(vecscalar, _mm_load_pd(&c[j])));
 #endif
-#ifdef BENCH_POWER8    
+#if defined(BENCH_POWER8) && defined(USE_FLOAT)
+      for (j=start; j< start+chunk; j+=4)
+            vec_vsx_st(vec_mul(vecscalar, vec_vsx_ld(0, &c[j])), 0, &b[j]);
+#elif defined(BENCH_POWER8)      /* double precision */    
 	  for (j=start; j< start+chunk; j+=2)
             vec_vsx_st(vec_mul(vecscalar, vec_vsx_ld(0, &c[j])), 0, &b[j]);
 #endif
-#ifdef BENCH_RV64    
+#if defined(BENCH_RV64) && defined(USE_FLOAT)
+        for (j=start; j< start+chunk; j+=4)
+            __riscv_vse32_v_f32m1(&b[j], __riscv_vfmul_vf_f32m1(__riscv_vle32_v_f32m1(&c[j], gvl), vecscalar, gvl), gvl);
+#elif defined(BENCH_RV64)
 	  for (j=start; j< start+chunk; j+=2)
             __riscv_vse64_v_f64m1(&b[j], __riscv_vfmul_vf_f64m1(__riscv_vle64_v_f64m1(&c[j], gvl), vecscalar, gvl), gvl);
 #endif
-#ifdef BENCH_ARMV8
+#if defined(BENCH_ARMV8) && defined(USE_FLOAT)
+    float32x4_t vecscalar = vdupq_n_f32(scalar);
+    for (j = start; j < start + chunk; j += 8) { // loop unrolling
+        /* first vector */
+        float32x4_t in1  = vld1q_f32(&c[j]);
+        float32x4_t out1 = vmulq_f32(in1, vecscalar);
+        vst1q_f32(&b[j], out1);
+        /* second vector */
+        float32x4_t in2  = vld1q_f32(&c[j+4]);
+        float32x4_t out2 = vmulq_f32(in2, vecscalar);
+        vst1q_f32(&b[j+4], out2);
+    }
+    for (; j < start + chunk; ++j) // handle remaining elements
+        b[j] = scalar * c[j];  
+#elif defined(BENCH_ARMV8) 
         __asm__ __volatile__("mov x0, %0\n\t"  // b
                              "mov x1, %1\n\t"  // c
                              "mov x3, %2\n\t"  // scalar
@@ -1040,33 +1120,72 @@ void tuned_STREAM_Add()
           ssize_t start = 0;
 #endif     
 
-#ifdef BENCH_AVX512  
+#if defined(BENCH_AVX512) && defined(USE_FLOAT)
+      for (j=start; j< start+chunk; j+=16)
+              _mm512_stream_ps(&c[j], _mm512_add_ps(_mm512_load_ps(&a[j]), _mm512_load_ps(&b[j])));
+#elif defined(BENCH_AVX512)
 	  for (j=start; j< start+chunk; j+=8)
            _mm512_stream_pd(&c[j], _mm512_add_pd(_mm512_load_pd(&a[j]), _mm512_load_pd(&b[j])));
 #endif
-#ifdef BENCH_AVX     
+#if defined(BENCH_AVX) && defined(USE_FLOAT)
+      for (j=start; j< start+chunk; j+=8)
+            _mm256_stream_ps(&c[j], _mm256_add_ps(_mm256_load_ps(&a[j]), _mm256_load_ps(&b[j])));     
+#elif defined(BENCH_AVX)     
 	  for (j=start; j< start+chunk; j+=4)
-           _mm256_stream_pd(&c[j], _mm256_add_pd(_mm256_load_pd(&a[j]), _mm256_load_pd(&b[j])));
+            _mm256_stream_pd(&c[j], _mm256_add_pd(_mm256_load_pd(&a[j]), _mm256_load_pd(&b[j])));
 #endif
-#ifdef BENCH_SSE     
+#if defined(BENCH_SSE) && defined(USE_FLOAT)
+        for (j=start; j< start+chunk; j+=4)
+            _mm_stream_ps(&c[j], _mm_add_ps(_mm_load_ps(&a[j]), _mm_load_ps(&b[j])));
+#elif defined(BENCH_SSE)     
 	  for (j=start; j< start+chunk; j+=2)
            _mm_stream_pd(&c[j], _mm_add_pd(_mm_load_pd(&a[j]), _mm_load_pd(&b[j])));
 #endif
-#ifdef BENCH_SSE     
+#if defined(BENCH_SSE) && defined(USE_FLOAT)
+        for (j=start; j< start+chunk; j+=4)
+            _mm_stream_ps(&c[j], _mm_add_ps(_mm_load_ps(&a[j]), _mm_load_ps(&b[j])));
+#elif defined(BENCH_SSE)     
 	  for (j=start; j< start+chunk; j+=2)
            _mm_stream_pd(&c[j], _mm_add_pd(_mm_load_pd(&a[j]), _mm_load_pd(&b[j])));
 #endif
-#ifdef BENCH_POWER8     
+#if defined(BENCH_POWER8) && defined(USE_FLOAT)
+    for (j = start; j < start + chunk; j += 4) {
+        vector STREAM_TYPE va = (vector STREAM_TYPE)vec_vsx_ld(0, &a[j]);
+        vector STREAM_TYPE vb = (vector STREAM_TYPE)vec_vsx_ld(0, &b[j]);
+        vector STREAM_TYPE vc = vec_add(va, vb);
+        vec_vsx_st(vc, 0, &c[j]);
+    }
+#elif defined(BENCH_POWER8)     
 	  for (j=start; j< start+chunk; j+=2)
             vec_vsx_st(vec_add(vec_vsx_ld(0, &a[j]), vec_vsx_ld(0, &b[j])), 0, &c[j]);
 #endif
-#ifdef BENCH_RV64
+#if defined(BENCH_RV64) && defined(USE_FLOAT)
+        size_t gvl = __riscv_vsetvl_e32m1(32);
+      for (j=start; j< start+chunk; j+=4)
+            __riscv_vse32_v_f32m1(&c[j], __riscv_vfadd_vv_f32m1(__riscv_vle32_v_f32m1((&a[j]), gvl), __riscv_vle32_v_f32m1((&b[j]), gvl), gvl), gvl);
+#elif defined(BENCH_RV64)
     size_t gvl = __riscv_vsetvl_e64m1(16);
 	  for (j=start; j< start+chunk; j+=2){
             __riscv_vse64_v_f64m1(&c[j], __riscv_vfadd_vv_f64m1(__riscv_vle64_v_f64m1((&a[j]), gvl), __riscv_vle64_v_f64m1((&b[j]), gvl), gvl), gvl);
     }
 #endif
-#ifdef BENCH_ARMV8    
+#if defined(BENCH_ARMV8) && defined(USE_FLOAT)
+    float32x4_t vecscalar = vdupq_n_f32(1.0);
+    for (j = start; j < start + chunk; j += 8) {
+        /* first vector */
+        float32x4_t in1  = vld1q_f32(&a[j]);
+        float32x4_t in2  = vld1q_f32(&b[j]);
+        float32x4_t out1 = vaddq_f32(in1, in2);
+        vst1q_f32(&c[j], out1);
+        /* second vector */
+        float32x4_t in3  = vld1q_f32(&a[j+4]);
+        float32x4_t in4  = vld1q_f32(&b[j+4]);
+        float32x4_t out2 = vaddq_f32(in3, in4);
+        vst1q_f32(&c[j+4], out2);
+    }
+    for (; j < start + chunk; ++j) // handle remaining elements
+        c[j] = a[j] + b[j];
+#elif defined(BENCH_ARMV8)    
         __asm__ __volatile__("mov x0, %0\n\t"  // a
                              "mov x1, %1\n\t"  // b
                              "mov x2, %2\n\t"  // c
@@ -1132,22 +1251,34 @@ void tuned_STREAM_Triad(STREAM_TYPE scalar)
 #endif
     sycl_q.wait();
 #else
-#ifdef BENCH_AVX512
+#if defined(BENCH_AVX512) && defined(USE_FLOAT)
+        __m512 vecscalar = _mm512_set1_ps(scalar);
+#elif defined(BENCH_AVX512)
         __m512d vecscalar = _mm512_set1_pd(scalar);
 #endif
-#ifdef BENCH_AVX
+#if defined(BENCH_AVX) && defined(USE_FLOAT)
+        __m256 vecscalar = _mm256_set1_ps(scalar);
+#elif defined(BENCH_AVX)
         __m256d vecscalar = _mm256_set1_pd(scalar);
 #endif
-#ifdef BENCH_SSE
+#if defined(BENCH_SSE) && defined(USE_FLOAT)
+        __m128 vecscalar = _mm_set1_ps(scalar);
+#elif defined(BENCH_SSE)
         __m128d vecscalar = _mm_set1_pd(scalar);
 #endif
-#ifdef BENCH_POWER8
+#if defined(BENCH_POWER8) && defined(USE_FLOAT)
+        __attribute__((aligned(128))) STREAM_TYPE pumped_scalar[4] = {scalar, scalar, scalar, scalar};
+        vector STREAM_TYPE vecscalar = vec_vsx_ld(0, pumped_scalar);
+#elif defined(BENCH_POWER8)      /* double precision */
         __attribute__((aligned(128))) STREAM_TYPE pumped_scalar[2] = {scalar, scalar};
-        vector double vecscalar = vec_vsx_ld(0, pumped_scalar);
+        vector STREAM_TYPE vecscalar = vec_vsx_ld(0, pumped_scalar);
 #endif
-#ifdef BENCH_RV64
+#if defined(BENCH_RV64) && defined(USE_FLOAT)
+        size_t gvl = __riscv_vsetvl_e32m1(32);
+        STREAM_TYPE vecscalar = scalar;
+#elif defined(BENCH_RV64)
         size_t gvl = __riscv_vsetvl_e64m1(16);
-        double vecscalar = scalar;
+        STREAM_TYPE vecscalar = scalar;
 #endif
         #pragma omp parallel
         {
@@ -1160,7 +1291,17 @@ void tuned_STREAM_Triad(STREAM_TYPE scalar)
           ssize_t start = 0;
 #endif      
 
-#ifdef BENCH_AVX512    
+#if defined(BENCH_AVX512) && defined(USE_FLOAT)
+    for (j=start; j< start+chunk; j+=16) {
+#ifdef USE_AVX512_PREFETCH
+             _mm_prefetch( (void*) &b[j+128], _MM_HINT_T2 );
+             _mm_prefetch( (void*) &c[j+128], _MM_HINT_T2 );
+             _mm_prefetch( (void*) &b[j+16], _MM_HINT_T1 );
+             _mm_prefetch( (void*) &c[j+16], _MM_HINT_T1 );
+#endif
+             _mm512_stream_ps(&a[j], _mm512_add_ps(_mm512_load_ps(&b[j]), _mm512_mul_ps(vecscalar, _mm512_load_ps(&c[j])) ) );
+    }
+#elif defined(BENCH_AVX512)
 	  for (j=start; j< start+chunk; j+=8) {
 #ifdef USE_AVX512_PREFETCH
              _mm_prefetch( (void*) &b[j+64], _MM_HINT_T2 );
@@ -1171,23 +1312,51 @@ void tuned_STREAM_Triad(STREAM_TYPE scalar)
              _mm512_stream_pd(&a[j], _mm512_add_pd(_mm512_load_pd(&b[j]), _mm512_mul_pd(vecscalar, _mm512_load_pd(&c[j])) ) );
     }
 #endif
-#ifdef BENCH_AVX    
+#if defined(BENCH_AVX) && defined(USE_FLOAT)
+      for (j=start; j< start+chunk; j+=8)
+        _mm256_stream_ps(&a[j], _mm256_add_ps(_mm256_load_ps(&b[j]), _mm256_mul_ps(vecscalar, _mm256_load_ps(&c[j])) ) );
+#elif defined(BENCH_AVX)
 	  for (j=start; j< start+chunk; j+=4)
              _mm256_stream_pd(&a[j], _mm256_add_pd(_mm256_load_pd(&b[j]), _mm256_mul_pd(vecscalar, _mm256_load_pd(&c[j])) ) );
 #endif
-#ifdef BENCH_SSE    
+#if defined(BENCH_SSE) && defined(USE_FLOAT)
+        for (j=start; j< start+chunk; j+=4)
+                 _mm_stream_ps(&a[j], _mm_add_ps(_mm_load_ps(&b[j]), _mm_mul_ps(vecscalar, _mm_load_ps(&c[j])) ) );
+#elif defined(BENCH_SSE)
 	  for (j=start; j< start+chunk; j+=2)
              _mm_stream_pd(&a[j], _mm_add_pd(_mm_load_pd(&b[j]), _mm_mul_pd(vecscalar, _mm_load_pd(&c[j])) ) );
 #endif
-#ifdef BENCH_POWER8
+#if defined(BENCH_POWER8) && defined(USE_FLOAT)
+      for (j=start; j< start+chunk; j+=4)
+            vec_vsx_st(vec_add(vec_vsx_ld(0, &b[j]), vec_mul(vecscalar, vec_vsx_ld(0, &c[j]))), 0, &a[j]);
+#elif defined(BENCH_POWER8)      /* double precision */
 	  for (j=start; j< start+chunk; j+=2)
             vec_vsx_st(vec_madd(vec_vsx_ld(0, &c[j]), vecscalar, vec_vsx_ld(0, &b[j])), 0, &a[j]);
 #endif
-#ifdef BENCH_RV64
+#if defined(BENCH_RV64) && defined(USE_FLOAT)
+        for (j=start; j< start+chunk; j+=4)
+            __riscv_vse32_v_f32m1(&a[j], __riscv_vfmadd_vf_f32m1(__riscv_vle32_v_f32m1(&c[j], gvl), vecscalar, __riscv_vle32_v_f32m1(&b[j], gvl), gvl), gvl);
+#elif defined(BENCH_RV64)
 	  for (j=start; j< start+chunk; j+=2)
              __riscv_vse64_v_f64m1(&a[j], __riscv_vfmadd_vf_f64m1(__riscv_vle64_v_f64m1(&c[j], gvl), vecscalar, __riscv_vle64_v_f64m1(&b[j], gvl), gvl), gvl);
 #endif
-#ifdef BENCH_ARMV8
+#if defined(BENCH_ARMV8) && defined(USE_FLOAT)
+    float32x4_t vecscalar = vdupq_n_f32(scalar);
+    for (j = start; j < start + chunk; j += 8) {
+        /* first vector */
+        float32x4_t in1  = vld1q_f32(&b[j]);
+        float32x4_t in2  = vld1q_f32(&c[j]);
+        float32x4_t out1 = vaddq_f32(in1, vmulq_f32(in2, vecscalar));
+        vst1q_f32(&a[j], out1);
+        /* second vector */
+        float32x4_t in3  = vld1q_f32(&b[j+4]);
+        float32x4_t in4  = vld1q_f32(&c[j+4]);
+        float32x4_t out2 = vaddq_f32(in3, vmulq_f32(in4, vecscalar));
+        vst1q_f32(&a[j+4], out2);
+    }
+    for (; j < start + chunk; ++j) // handle remaining elements
+        a[j] = b[j] + (scalar * c[j]);
+#elif defined(BENCH_ARMV8)
         __asm__ __volatile__("mov x0, %0\n\t"  // a
                              "mov x1, %1\n\t"  // b
                              "mov x2, %2\n\t"  // c
