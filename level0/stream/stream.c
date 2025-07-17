@@ -264,9 +264,7 @@ __global__ void tuned_STREAM_Triad_cuda(STREAM_TYPE* d_a, STREAM_TYPE* d_b, STRE
 #include <sycl/ext/intel/esimd.hpp>
 #include <sycl/ext/intel/esimd/memory.hpp>
 
-// sycl::queue sycl_q; // persistent SYCL queue
-
-sycl::queue sycl_q;
+sycl::queue sycl_q; // persistent SYCL queue
 
 #define TUNED
 #ifdef USE_FLOAT
