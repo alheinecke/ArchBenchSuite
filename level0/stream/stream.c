@@ -264,7 +264,9 @@ __global__ void tuned_STREAM_Triad_cuda(STREAM_TYPE* d_a, STREAM_TYPE* d_b, STRE
 #include <sycl/ext/intel/esimd.hpp>
 #include <sycl/ext/intel/esimd/memory.hpp>
 
-sycl::queue sycl_q; // persistent SYCL queue
+// sycl::queue sycl_q; // persistent SYCL queue
+
+sycl::queue sycl_q;
 
 #define TUNED
 #ifdef USE_FLOAT
@@ -534,6 +536,7 @@ main()
     sycl_q.memcpy(ad, a, ((size_t)STREAM_ARRAY_SIZE)*sizeof(STREAM_TYPE));
     sycl_q.memcpy(bd, b, ((size_t)STREAM_ARRAY_SIZE)*sizeof(STREAM_TYPE));
     sycl_q.memcpy(cd, c, ((size_t)STREAM_ARRAY_SIZE)*sizeof(STREAM_TYPE));
+    sycl_q.wait();
 #endif
 #if defined(USE_CUDA_DEVICE_ALLOC)
     cudaMemcpy( ad, a, ((size_t)STREAM_ARRAY_SIZE)*sizeof(STREAM_TYPE), cudaMemcpyHostToDevice );
@@ -590,6 +593,7 @@ main()
     sycl_q.memcpy(a, ad, ((size_t)STREAM_ARRAY_SIZE)*sizeof(STREAM_TYPE));
     sycl_q.memcpy(b, bd, ((size_t)STREAM_ARRAY_SIZE)*sizeof(STREAM_TYPE));
     sycl_q.memcpy(c, cd, ((size_t)STREAM_ARRAY_SIZE)*sizeof(STREAM_TYPE));
+    sycl_q.wait();
 #endif
 #if defined(USE_CUDA_DEVICE_ALLOC)
     cudaMemcpy( a, ad, ((size_t)STREAM_ARRAY_SIZE)*sizeof(STREAM_TYPE), cudaMemcpyDeviceToHost );
