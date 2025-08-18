@@ -38,15 +38,14 @@ endif
 
 ifeq ($(TARGET), avx)
 CFLAGS=-O2 -fopenmp -DBENCH_AVX -DNTIMES=100 -DSTREAM_ARRAY_SIZE=73728000 -mavx -fstrict-aliasing
+CFLAGS=-O2 -mavx -fopenmp -DBENCH_AVX -DNTIMES=100 -DSTREAM_ARRAY_SIZE=1442119680 -fstrict-aliasing
 EXE=stream_avx
 endif
 
 ifeq ($(TARGET), avx2)
-CC=icc
+CC=clang
 #CFLAGS=-O2 -mavx -qopenmp -DBENCH_AVX512 -DNTIMES=100 -DSTREAM_ARRAY_SIZE=73728000 -fstrict-aliasing -opt-streaming-cache-evict=0 -opt-streaming-stores always -opt-prefetch-distance=64,8 -static-intel
-CFLAGS=-O2 -mavx -qopenmp -DBENCH_AVX512 -DNTIMES=1000 -DSTREAM_ARRAY_SIZE=43008000 -fstrict-aliasing -opt-streaming-cache-evict=0 -opt-streaming-stores always -opt-prefetch-distance=64,8 -static-intel
-#CFLAGS=-O2 -mavx -qopenmp -DBENCH_AVX2 -DNTIMES=1000 -DSTREAM_ARRAY_SIZE=73728000 -fstrict-aliasing -opt-streaming-cache-evict=0 -opt-streaming-stores always -opt-prefetch-distance=64,8 -static-intel
-#CFLAGS=-O2 -mavx -qopenmp -DBENCH_AVX512 -DNTIMES=1000 -DSTREAM_ARRAY_SIZE=64512000 -fstrict-aliasing -opt-streaming-cache-evict=0 -opt-streaming-stores always -opt-prefetch-distance=64,8 -static-intel
+CFLAGS=-O2 -mavx2 -mfma -fopenmp -DBENCH_AVX2 -DNTIMES=100 -DSTREAM_ARRAY_SIZE=1442119680 -fstrict-aliasing
 EXE=stream_avx2
 endif
 
@@ -62,6 +61,7 @@ CFLAGS=-O2 -mavx512f -mavx512cd -mavx512bw -mavx512dq -fopenmp -DBENCH_AVX512 -D
 CFLAGS=-O3 -mavx512f -mavx512cd -mavx512bw -mavx512dq -fopenmp -DBENCH_AVX512 -DNTIMES=100 -DSTREAM_ARRAY_SIZE=64512000 -fstrict-aliasing
 CFLAGS=-O3 -mavx512f -mavx512cd -mavx512bw -mavx512dq -fopenmp -DBENCH_AVX512 -DNTIMES=100 -DSTREAM_ARRAY_SIZE=73728000 -fstrict-aliasing
 CFLAGS=-O3 -mavx512f -mavx512cd -mavx512bw -mavx512dq -fopenmp -DBENCH_AVX512 -DNTIMES=100 -DSTREAM_ARRAY_SIZE=715833344 -fstrict-aliasing
+CFLAGS=-O3 -mavx512f -mavx512cd -mavx512bw -mavx512dq -fopenmp -DBENCH_AVX512 -DNTIMES=100 -DSTREAM_ARRAY_SIZE=1431633920 -fstrict-aliasing
 #CFLAGS=-O2 -xCOMMON-AVX512 -qopenmp -DBENCH_AVX512 -DNTIMES=1000 -DSTREAM_ARRAY_SIZE=64512000 -fstrict-aliasing -qopt-streaming-cache-evict=0 -qopt-streaming-stores always -qopt-prefetch=5 -qopt-prefetch-distance=448,32 -static-intel
 EXE=stream_avx512
 endif
@@ -96,6 +96,8 @@ endif
 
 ifeq ($(TARGET), sycl)
 CC=icpx
+# 4GB
+#CFLAGS=-O2 -fsycl -DUSE_SYCL_USM -DNTIMES=10 -DSTREAM_ARRAY_SIZE=178958336
 # 8GB
 CFLAGS=-O2 -fsycl -DUSE_SYCL_USM -DNTIMES=100 -DSTREAM_ARRAY_SIZE=357916672
 # 16GB
