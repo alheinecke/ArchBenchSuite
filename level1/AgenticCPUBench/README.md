@@ -202,6 +202,74 @@ Open the resulting `trace.json` at `chrome://tracing` or
 - **Time-aligned threads** — all threads share the `monotonic_time_s` clock, so events are correctly aligned across rows.
 - **Metric tooltips** — hover over any event to see bandwidth, GFLOPS, array size, and other metrics in the detail panel.
 
+### Statistical Analysis
+
+The `analyze_csv.py` script summarises benchmark results across all threads:
+
+```bash
+# Analyse all CSVs in the current directory
+python3 analyze_csv.py .
+
+# Analyse specific files
+python3 analyze_csv.py 0.csv 1.csv 2.csv
+```
+
+It prints three tables:
+
+1. **Call Fraction** — how often each benchmark was selected across all threads (verifies uniform random scheduling).
+2. **Expected Runtime** — mean, min, and max elapsed time per benchmark.
+3. **Runtime Variance** — variance, standard deviation, and coefficient of variation (CoV) per benchmark.
+
+Example output (8 threads, 50 rounds each, `all` mode on Intel Core Ultra 7 258V):
+
+```
+========================================================================
+  Call Fraction per Benchmark (across all threads)
+========================================================================
+  Total samples: 400   Threads: 8
+
+  Benchmark        Count   Fraction
+  -------------- ------- ----------
+  cachebwl2           48     12.00%
+  cachebwl3           49     12.25%
+  intipc              48     12.00%
+  latency             59     14.75%
+  qs                  49     12.25%
+  sleep               45     11.25%
+  triad               53     13.25%
+  xsmm                49     12.25%
+
+========================================================================
+  Expected Runtime per Benchmark
+========================================================================
+
+  Benchmark        Count   Mean (s)    Min (s)    Max (s)
+  -------------- ------- ---------- ---------- ----------
+  cachebwl2           48   1.235370   1.028665   1.669207
+  cachebwl3           49   1.635694   1.117664   2.056558
+  intipc              48   0.952151   0.797778   1.188861
+  latency             59   1.291113   0.844007   1.557255
+  qs                  49   1.040602   0.865494   1.420287
+  sleep               45   0.500276   0.500084   0.506103
+  triad               53   1.225150   0.905206   1.429427
+  xsmm                49   1.254924   1.054650   1.719608
+
+========================================================================
+  Runtime Variance per Benchmark
+========================================================================
+
+  Benchmark        Count   Mean (s)     Var (s²)   StdDev (s)      CoV
+  -------------- ------- ---------- ------------ ------------ --------
+  cachebwl2           48   1.235370  0.018524423     0.136104   11.02%
+  cachebwl3           49   1.635694  0.040906540     0.202254   12.37%
+  intipc              48   0.952151  0.007863225     0.088675    9.31%
+  latency             59   1.291113  0.026411390     0.162516   12.59%
+  qs                  49   1.040602  0.012370990     0.111225   10.69%
+  sleep               45   0.500276  0.000000790     0.000889    0.18%
+  triad               53   1.225150  0.014465213     0.120271    9.82%
+  xsmm                49   1.254924  0.016929074     0.130112   10.37%
+```
+
 ## Building
 
 ### Prerequisites
