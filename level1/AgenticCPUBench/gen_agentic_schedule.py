@@ -74,28 +74,141 @@ RND_REPS = 30
 # approximate a specialised agent worker. The 8 default roles below cover
 # the typical population in a multi-agent system.
 ROLE_WEIGHTS = {
-    # Orchestrator: lots of LLM round-trips, light parsing, little compute.
+    # Orchestrator: top-level planner that decomposes goals, dispatches
+    # sub-tasks to worker agents and waits on their results. Mostly waiting
+    # on LLM and worker round-trips with light dispatch bookkeeping.
+    #   - LLM planning round-trips and worker join waits    -> sleep (dominant)
+    #   - parsing/serialising plans, tasks, status updates  -> intipc
+    #   - small string ops on prompts / task descriptors    -> cachebwl2
+    #   - prioritising / re-ordering pending tasks          -> qs
+    #   - task-graph and worker-state lookups               -> latency
+    #   - light scans of conversation / status logs         -> cachebwl3
+    #   - rare bulk transcript dump                         -> triad (light)
+    #   - essentially no dense SIMD compute                 -> xsmm (rare)
     "orchestrator": {"sleep": 1.6, "intipc": 1.1, "qs": 0.8, "xsmm": 0.4,
                      "triad": 0.7, "latency": 0.6},
-    # Coder agent: compilation, file scans, sort/search.
-    "coder":        {"intipc": 2.0, "qs": 1.4, "cachebwl3": 1.3, "triad": 1.2,
-                     "sleep": 0.7, "xsmm": 0.4},
-    # RAG / retrieval: embedding lookups, DB scans, some inference.
+    # LLM-driven coding agent (e.g. Copilot/Claude-style tool-using agent):
+    # mirrors what an LLM agent does while editing/debugging a codebase:
+    #   - tool-call / model round-trip and subagent waits   -> sleep (dominant)
+    #   - tokenisation, JSON/protobuf serialisation, regex,
+    #     hashing of tool I/O                               -> intipc
+    #   - sorting/ranking candidate matches and edits       -> qs
+    #   - small string ops on prompts / snippets            -> cachebwl2
+    #   - scanning fetched source files / build logs        -> cachebwl3
+    #   - hopping across the symbol/xref graph (defs,
+    #     usages, includes, dedup of seen files)            -> latency
+    #   - rare bulk file copy / large diff write-out        -> triad (light)
+    #   - essentially no dense SIMD compute                 -> xsmm (rare)
+    "llm_coder":    {"sleep": 2.0, "intipc": 1.5, "qs": 1.3,
+                     "cachebwl2": 1.2, "cachebwl3": 1.5, "latency": 1.4,
+                     "triad": 0.6, "xsmm": 0.3},
+    # Researcher: web searches, fetching pages / PDFs, following citation and
+    # paper links. Mirrors what an LLM agent does when chasing references:
+    #   - heavy HTTP / search-API waits                     -> sleep (dominant)
+    #   - scanning fetched HTML/PDF/markdown text           -> cachebwl3
+    #   - HTML/PDF/JSON parsing, tokenisation, dedup hash   -> intipc
+    #   - hopping across the link/citation graph (URL set,
+    #     bibliography lookups, dedup of seen URLs)         -> latency
+    #   - ranking / re-ranking candidate results            -> qs
+    #   - small string ops on snippets / titles             -> cachebwl2
+    #   - occasional bulk download of a large PDF           -> triad (modest)
+    #   - essentially no dense SIMD compute                 -> xsmm (rare)
+    "researcher":   {"sleep": 2.4, "cachebwl3": 1.8, "intipc": 1.4,
+                     "latency": 1.8, "qs": 1.2, "cachebwl2": 1.1,
+                     "triad": 0.8, "xsmm": 0.2},
+    # Personal assistant / chat agent: handles conversational requests,
+    # checks calendars, books and reschedules appointments, sends
+    # confirmations. Heavy on small interactive turns and short calendar /
+    # contact lookups; very little bulk compute.
+    #   - LLM turn waits, calendar/email/CRM API calls, user idle gaps
+    #     between messages                                  -> sleep (dominant)
+    #   - JSON/iCal/protobuf (de)serialisation, request
+    #     validation, hashing of message/event ids          -> intipc
+    #   - small string ops on chat tokens, names, titles    -> cachebwl2
+    #   - scanning conversation/calendar context windows    -> cachebwl3
+    #   - sorting candidate slots, ranking contacts /
+    #     suggested times                                   -> qs
+    #   - calendar / contact / availability index lookups
+    #     (KV-store probes, free/busy graph)                -> latency
+    #   - rare bulk export (e.g. itinerary PDF, ICS file)   -> triad (light)
+    #   - essentially no dense SIMD compute                 -> xsmm (rare)
+    "assistant":    {"sleep": 2.6, "intipc": 1.2, "cachebwl2": 1.4,
+                     "cachebwl3": 1.0, "qs": 1.1, "latency": 1.5,
+                     "triad": 0.5, "xsmm": 0.2},
+    # RAG / retrieval worker: serves queries by embedding-table lookups,
+    # vector-DB / inverted-index probes, and small inference passes for
+    # re-ranking and answer composition.
+    #   - vector-DB / KV / embedding-table probes,
+    #     inverted-index hops                               -> latency (dominant)
+    #   - scanning candidate document/passage chunks        -> cachebwl3
+    #   - top-k / re-rank sorting of candidates             -> qs
+    #   - re-rank / cross-encoder / small inference         -> xsmm
+    #   - JSON request/response, tokenisation, hashing      -> intipc
+    #   - small string ops on snippets / titles             -> cachebwl2
+    #   - DB / network round-trips, paging waits            -> sleep (modest)
+    #   - occasional bulk passage / index-shard transfer    -> triad (modest)
     "rag":          {"latency": 2.5, "cachebwl3": 1.5, "qs": 1.3, "xsmm": 1.4,
                      "sleep": 0.8, "triad": 1.0},
-    # Tool runner: dominated by external tool invocations and light I/O.
+    # Tool runner: executes external tools / shell commands / MCP servers
+    # and shuttles their I/O back. Dominated by waiting on the spawned
+    # process and moving its output around.
+    #   - subprocess / RPC / MCP-call waits                 -> sleep (dominant)
+    #   - draining stdout/stderr / pipe buffers, large
+    #     file copy of tool artefacts                       -> triad
+    #   - small string ops on argv / env / short tool I/O   -> cachebwl2
+    #   - light parsing of tool output (JSON, text)         -> intipc
+    #   - simple sorting / dedup of result lists            -> qs
+    #   - occasional symbol/path lookups                    -> latency
+    #   - essentially no dense SIMD compute                 -> xsmm (rare)
     "tool":         {"sleep": 2.2, "triad": 1.3, "cachebwl2": 1.2,
                      "intipc": 0.8, "xsmm": 0.3, "latency": 0.6},
-    # Data wrangler: column scans, sorts, streaming.
+    # Data wrangler / ETL: reads tables and logs, projects/filters/joins,
+    # sorts and writes results back. Streaming and scan heavy with modest
+    # compute and few external waits.
+    #   - column / row scans, log filtering, JSON/CSV chunks -> cachebwl3 (dominant)
+    #   - tokenisation, small projections, hot transforms    -> cachebwl2
+    #   - sort / merge / hash-join build phases              -> qs
+    #   - file/network ingest and result writeback           -> triad
+    #   - parsing, schema validation, hashing of keys        -> intipc
+    #   - I/O completion / disk waits                        -> sleep (modest)
+    #   - hash-table probes for joins / dedup                -> latency
+    #   - light vectorised aggregations                      -> xsmm (small)
     "data":         {"cachebwl3": 1.8, "cachebwl2": 1.5, "qs": 1.4,
                      "triad": 1.5, "sleep": 0.7, "xsmm": 0.5},
-    # Inference: GEMM-heavy, modest data movement.
+    # Inference worker: runs ML model kernels (GEMM/attention/conv) for
+    # local model inference or re-ranking. Compute-bound with modest data
+    # movement around the kernels.
+    #   - dense SIMD compute (GEMM / attention / conv)      -> xsmm (dominant)
+    #   - activation / KV-cache scans between layers        -> cachebwl3
+    #   - weight / activation streaming                     -> triad
+    #   - tokenisation, request (de)serialisation           -> intipc
+    #   - sampling / top-k / argmax over logits             -> qs
+    #   - KV-cache / embedding-table lookups                -> latency
+    #   - batch-queue / scheduler waits                     -> sleep (modest)
     "inference":    {"xsmm": 4.0, "cachebwl3": 1.2, "triad": 1.1,
                      "sleep": 0.5, "intipc": 0.7, "qs": 0.6, "latency": 0.8},
-    # Graph analytics: pointer chasing, sparse access, sorting.
+    # Graph analytics: BFS / PageRank / connected-components / SpMV style
+    # workloads dominated by irregular pointer chasing.
+    #   - random-access pointer chasing, frontier hops      -> latency (dominant)
+    #   - sorting / partitioning of frontiers and edges     -> qs
+    #   - scans of CSR / adjacency arrays                   -> cachebwl3
+    #   - bitset / id ops on small per-vertex state         -> cachebwl2
+    #   - ranking / reduction across active vertices        -> intipc
+    #   - small SIMD reductions (dot-products on chunks)    -> xsmm (small)
+    #   - shard / partition swap to/from disk               -> triad
+    #   - barrier / superstep waits                         -> sleep (modest)
     "graph":        {"latency": 3.0, "qs": 1.5, "cachebwl3": 1.2,
                      "sleep": 0.6, "xsmm": 0.5, "intipc": 0.8},
-    # Idle/observer: mostly waiting, occasional light work.
+    # Idle / observer: a mostly-quiet thread that pings health checks and
+    # waits on events. Models the always-present "slack" cores in a
+    # multi-agent system.
+    #   - long event/queue/condvar waits, heartbeat sleeps  -> sleep (dominant)
+    #   - tiny string ops on heartbeat / status payloads    -> cachebwl2
+    #   - light parsing / hashing of status messages        -> intipc
+    #   - small sort / dedup of pending events              -> qs
+    #   - occasional state-table lookups                    -> latency
+    #   - rare log rotation / dump                          -> triad (light)
+    #   - essentially no dense SIMD compute                 -> xsmm (rare)
     "idle":         {"sleep": 3.0, "cachebwl2": 0.8, "intipc": 0.6,
                      "qs": 0.5, "xsmm": 0.2, "triad": 0.5, "latency": 0.5},
 }
@@ -159,6 +272,21 @@ def draw_reps(bench_name, role, rng):
     # Idle role pushes sleep waits even longer.
     if role == "idle" and bench_name == "sleep":
         a, b = 1.2, 2.5
+    # LLM coder: many medium-length tool/model round-trips with occasional
+    # very long subagent / build calls.
+    if role == "llm_coder" and bench_name == "sleep":
+        a, b = 1.8, 4.0
+    # Researcher: HTTP fetches and search-API calls — medium waits with a
+    # heavy tail for slow servers / large PDF downloads / PDF rendering.
+    if role == "researcher" and bench_name == "sleep":
+        a, b = 1.6, 4.5
+    # Researcher: scans of fetched pages can be quite long for big PDFs.
+    if role == "researcher" and bench_name == "cachebwl3":
+        a, b = 2.5, 2.5
+    # Personal assistant: chat turns are mostly short LLM round-trips with
+    # occasional long user-idle gaps (waiting for a reply / confirmation).
+    if role == "assistant" and bench_name == "sleep":
+        a, b = 1.4, 5.0
 
     u = rng.betavariate(a, b)             # u in (0,1)
     k = 1 + int(round(u * (RND_REPS - 1)))
