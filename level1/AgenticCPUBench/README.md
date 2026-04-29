@@ -59,10 +59,26 @@ server and client workloads.
 | `cachebwl2` | Sequential SIMD read sweep over a small array (targets L2 cache). | 512 KB | 0 (pure read) | bandwidth (GB/s) |
 | `cachebwl3` | Sequential SIMD read sweep over a medium array (targets L3 cache). | 10 MB | 0 (pure read) | bandwidth (GB/s) |
 | `xsmm` | F32 strided batch-reduce GEMM via libxsmm JIT. M=64, N=24, K=64, BR=16. | ~3 MB | high | GFLOPS |
-| `qs` | In-place quicksort (median-of-three pivot, insertion sort ≤16) on int64\_t. Each rep restores the shuffled reference before sorting. | 64 MB | branch-heavy, cache-sensitive | Melements/s |
+| `qs` | In-place quicksort (median-of-three pivot, insertion sort ≤16) on int64\_t. Each rep restores the shuffled reference before sorting. | 16 MB | branch-heavy, cache-sensitive | Melements/s |
 | `intipc` | Integer IPC stress: 8 independent 64-bit add accumulation chains over a data\[8\]\[4096\] array, inner loop fully unrolled in inline asm. No SIMD. | 1 MB | integer-only | GOPS |
 | `latency` | HPCC RandomAccess (GUPS): `table[ran & mask] ^= ran` with LFSR PRNG. Random accesses expose memory latency beyond L3. | 64 MB | random access | GUPS |
-| `sleep` | Idle placeholder: each rep calls `usleep(500000)` (0.5 s). Models idle gaps between agent actions. | — | — | — |
+| `sleep` | Idle placeholder: each rep calls `usleep(150000)` (0.15 s). Models idle gaps between agent actions. | — | — | — |
+
+### Workloads Approximated by Each Micro-Benchmark
+
+The suite is intentionally small but each kernel is chosen to be a proxy for a
+broad class of real-world CPU workloads. The table below maps each micro to
+representative workload patterns it stresses similarly.
+
+| Micro | Models what? |
+|-------|--------------|
+| `sleep` | I/O waits, REST/RPC API calls, external tool calls (MCP, shell sub-processes), LLM round-trips, blocking disk/network reads, lock/condvar waits, polling loops |
+| `cachebwl2` / `cachebwl3` | Small-to-medium working-set data processing: array/vector transforms, in-memory table scans, JSON/CSV parsing of cached buffers, columnar projections, tokenisation, log filtering, image-tile/audio-frame processing, hot-loop interpreter dispatch |
+| `intipc` | Integer-IPC heavy code: compilers and linkers, JIT/AOT codegen, regex engines, hashing/CRC/checksums, protobuf/flatbuffer (de)serialisation, bytecode interpreters, lexers/parsers, bit-twiddling crypto primitives |
+| `qs` | Branch-heavy, cache-sensitive workloads with some memory-latency component: DBMS query execution (sort/merge/hash-join/index probes), OS and filesystem operations (path resolution, b-tree traversal), search and ranking, garbage collectors, route lookups, scheduler decisions |
+| `triad` | Large streaming I/O from a single core: file copy / `memcpy`, network buffer drains, `tar`/compression front-ends, large RPC payload (de)serialisation, in-memory shuffle/repartition, video/raw-frame streaming, snapshot/checkpoint writeback |
+| `xsmm` | High-IPC SIMD compute (~3.5 IPC class): dense linear algebra, ML inference/training kernels (GEMM/conv via `im2col`), DSP and FFT inner loops, scientific simulations (stencils, BLAS3), embedding/dot-product scoring, batched cosine similarity |
+| `latency` (GUPS) | Pointer-chasing and irregular-access workloads: graph processing (BFS/PageRank/connected-components), sparse linear algebra (SpMV), recommendation/embedding-table lookups, KV-store probes, in-memory analytics on large hash tables, symbol-table / scope lookups in interpreters |
 
 ### Default Parameters
 
@@ -74,42 +90,57 @@ All working-set sizes are compiled-in constants:
 | `cachebwl2` | 512 KB |
 | `cachebwl3` | 10 MB |
 | `xsmm` | M=64, N=24, K=64, BR=16, F32, alpha=1, beta=0 |
-| `qs` | 64 MB |
+| `qs` | 16 MB |
 | `intipc` | 1 MB (num\_iter = 1024 outer iterations) |
 | `latency` | 64 MB (largest power-of-two ≤ 64 MiB, num\_updates = 4×n) |
-| `sleep` | 0.5 seconds per rep |
+| `sleep` | 0.15 seconds per rep |
 
 ### Repetition Multipliers
 
 Each benchmark has a compiled-in repetition multiplier (`REPS_MULT_*`) that
-scales the user-supplied repetition count so that **all benchmarks run for
-roughly the same wall-clock time per round** when invoked with `reps=1`.
-This ensures that in `all` mode (random scheduling) each benchmark slot
-occupies a comparable time slice regardless of the vastly different per-kernel
-costs.
+determines how many kernel iterations make up a single round, so that **all
+benchmarks run for roughly the same wall-clock time per round**. This ensures
+that in `all` mode (random scheduling) each benchmark slot occupies a
+comparable time slice regardless of the vastly different per-kernel costs.
 
 The current values were calibrated on a single core of an Intel Core Ultra 7
-258V (Lunar Lake, AVX2, WSL) targeting ~0.6 s per round:
+258V (Lunar Lake, AVX2, WSL) targeting ~0.15–0.25 s per round (measured with
+`RND_REPS` temporarily set to 1 so each round runs exactly `REPS_MULT_*`
+kernel iterations):
 
 | Benchmark | `REPS_MULT` | ~Time / round (1 thread, 10 rounds) |
 |-----------|-------------|-------------------------------------|
-| `triad` | 64 | 6.10 s |
-| `cachebwl2` | 150 000 | 6.34 s |
-| `cachebwl3` | 3 000 | 6.62 s |
-| `xsmm` | 20 000 | 6.12 s |
-| `qs` | 1 | 6.58 s |
-| `intipc` | 150 | 5.52 s |
-| `latency` | 3 | 6.69 s |
-| `sleep` | 1 | 5.00 s |
+| `triad` | 16 | 1.71 s |
+| `cachebwl2` | 37 500 | 1.82 s |
+| `cachebwl3` | 800 | 2.00 s |
+| `xsmm` | 5 000 | 1.79 s |
+| `qs` | 1 | 1.61 s |
+| `intipc` | 37 | 1.61 s |
+| `latency` | 1 | 2.43 s |
+| `sleep` | 1 | 1.50 s |
 
-To retune for a different platform, run each benchmark individually with
-`reps=1` and 10 rounds, then adjust the multipliers in `AgenticCPUBench.cpp`
-until all benchmarks converge to the same total time.
+To retune for a different platform, temporarily set `RND_REPS = 1` in
+`AgenticCPUBench.cpp`, run each benchmark individually with 10 rounds, then
+adjust the multipliers until all benchmarks converge to the same total time.
+Restore `RND_REPS = 30` afterwards.
+
+### Per-Round Random Reps Multiplier (`RND_REPS`)
+
+In addition to the fixed per-benchmark `REPS_MULT_*` values, each round draws
+an independent random integer `k ∈ [1, RND_REPS]` (compile-time constant,
+currently `RND_REPS = 30`) and runs the selected benchmark with `k` passed
+as the rep count (which the benchmark internally multiplies by `REPS_MULT_*`).
+This adds temporal variability to the workload, better modelling the
+unpredictable burst lengths of agent actions.
+
+The drawn `k` value for every round is written to the schedule file by
+`--dump-schedule` and restored by `--replay-schedule`, so reruns are
+bit-for-bit reproducible.
 
 ## Usage
 
 ```
-./AgenticCPUBench_<ISA>.exe <benchmark> <repetitions> <rounds> [options]
+./AgenticCPUBench_<ISA>.exe <benchmark> <rounds> [options]
 ```
 
 ### Arguments
@@ -117,15 +148,14 @@ until all benchmarks converge to the same total time.
 | Argument | Description |
 |----------|-------------|
 | `benchmark` | Which benchmark(s) to enable. One of: `triad`, `cachebwl2`, `cachebwl3`, `xsmm`, `qs`, `intipc`, `latency`, `sleep`, or **`all`** (enables all eight). |
-| `repetitions` | Number of timed kernel repetitions per benchmark invocation within a single round. |
-| `rounds` | Number of outer rounds. Each round, **every OpenMP thread independently picks one benchmark at random** from the enabled set and runs it for the given number of repetitions. |
+| `rounds` | Number of outer rounds. Each round, **every OpenMP thread independently picks one benchmark at random** from the enabled set and runs it with a randomised reps multiplier `k ∈ [1, RND_REPS]`. |
 
 ### Options
 
 | Option | Description |
 |--------|-------------|
-| `--dump-schedule <prefix>` | Write each thread's random schedule to `<prefix>_tid<N>.sched` (one benchmark index per line). |
-| `--replay-schedule <prefix>` | Read schedules from `<prefix>_tid<N>.sched` and replay them exactly, instead of drawing random choices. |
+| `--dump-schedule <prefix>` | Write each thread's random schedule to `<prefix>_tid<N>.sched`. Each line contains two integers: the benchmark index and the per-round random reps multiplier drawn from `[1, RND_REPS]`. |
+| `--replay-schedule <prefix>` | Read schedules from `<prefix>_tid<N>.sched` and replay them exactly (both benchmark choice and reps multiplier), instead of drawing random values. |
 
 ### Environment Variables
 
@@ -138,19 +168,19 @@ until all benchmarks converge to the same total time.
 
 ```bash
 # Single benchmark, 1 thread, 10 rounds
-LD_LIBRARY_PATH=./libxsmm/lib OMP_NUM_THREADS=1 ./AgenticCPUBench_avx2.exe triad 1 10
+LD_LIBRARY_PATH=./libxsmm/lib OMP_NUM_THREADS=1 ./AgenticCPUBench_avx2.exe triad 10
 
 # All benchmarks, 8 threads, 100 rounds (randomised per-thread)
-LD_LIBRARY_PATH=./libxsmm/lib OMP_NUM_THREADS=8 ./AgenticCPUBench_avx2.exe all 1 100
+LD_LIBRARY_PATH=./libxsmm/lib OMP_NUM_THREADS=8 ./AgenticCPUBench_avx2.exe all 100
 
-# AVX-512 build, 4 threads
-LD_LIBRARY_PATH=./libxsmm/lib OMP_NUM_THREADS=4 ./AgenticCPUBench_avx512.exe all 2 50
+# AVX-512 build, 4 threads, 50 rounds
+LD_LIBRARY_PATH=./libxsmm/lib OMP_NUM_THREADS=4 ./AgenticCPUBench_avx512.exe all 50
 
 # Dump the random schedule for later replay
-LD_LIBRARY_PATH=./libxsmm/lib OMP_NUM_THREADS=4 ./AgenticCPUBench_avx2.exe all 1 100 --dump-schedule ./my_run
+LD_LIBRARY_PATH=./libxsmm/lib OMP_NUM_THREADS=4 ./AgenticCPUBench_avx2.exe all 100 --dump-schedule ./my_run
 
 # Replay a previously saved schedule (exact same benchmark order per thread)
-LD_LIBRARY_PATH=./libxsmm/lib OMP_NUM_THREADS=4 ./AgenticCPUBench_avx2.exe all 1 100 --replay-schedule ./my_run
+LD_LIBRARY_PATH=./libxsmm/lib OMP_NUM_THREADS=4 ./AgenticCPUBench_avx2.exe all 100 --replay-schedule ./my_run
 ```
 
 ## Output
@@ -220,54 +250,57 @@ It prints three tables:
 2. **Expected Runtime** — mean, min, and max elapsed time per benchmark.
 3. **Runtime Variance** — variance, standard deviation, and coefficient of variation (CoV) per benchmark.
 
-Example output (8 threads, 50 rounds each, `all` mode on Intel Core Ultra 7 258V):
+Example output (8 threads, 15 rounds each, `all` mode on Intel Core Ultra 7 258V):
 
 ```
 ========================================================================
   Call Fraction per Benchmark (across all threads)
 ========================================================================
-  Total samples: 400   Threads: 8
+  Total samples: 120   Threads: 8
 
   Benchmark        Count   Fraction
   -------------- ------- ----------
-  cachebwl2           48     12.00%
-  cachebwl3           49     12.25%
-  intipc              48     12.00%
-  latency             59     14.75%
-  qs                  49     12.25%
-  sleep               45     11.25%
-  triad               53     13.25%
-  xsmm                49     12.25%
+  cachebwl2           13     10.83%
+  cachebwl3           12     10.00%
+  intipc              13     10.83%
+  latency             19     15.83%
+  qs                  12     10.00%
+  sleep               20     16.67%
+  triad               14     11.67%
+  xsmm                17     14.17%
 
 ========================================================================
-  Expected Runtime per Benchmark
+  Expected Runtime per Benchmark (normalised per rep)
+========================================================================
+  Each round draws a random k ∈ [1, RND_REPS]; values below are
+  elapsed_s / reps so invocations are directly comparable.
+
+  Benchmark        Count     Mean (s)      Min (s)      Max (s)
+  -------------- ------- ------------ ------------ ------------
+  cachebwl2           13  0.000009973  0.000007199  0.000011839
+  cachebwl3           12  0.000608011  0.000295176  0.000791938
+  intipc              13  0.007185046  0.004838574  0.009250811
+  latency             19  0.444615762  0.240411833  0.609337000
+  qs                  12  0.284511370  0.206190500  0.369728444
+  sleep               20  0.150335620  0.150125889  0.152118412
+  triad               14  0.020667255  0.015667931  0.025096090
+  xsmm                17  0.000066878  0.000036811  0.000086406
+
+========================================================================
+  Runtime Variance per Benchmark (normalised per rep)
 ========================================================================
 
-  Benchmark        Count   Mean (s)    Min (s)    Max (s)
-  -------------- ------- ---------- ---------- ----------
-  cachebwl2           48   1.235370   1.028665   1.669207
-  cachebwl3           49   1.635694   1.117664   2.056558
-  intipc              48   0.952151   0.797778   1.188861
-  latency             59   1.291113   0.844007   1.557255
-  qs                  49   1.040602   0.865494   1.420287
-  sleep               45   0.500276   0.500084   0.506103
-  triad               53   1.225150   0.905206   1.429427
-  xsmm                49   1.254924   1.054650   1.719608
-
-========================================================================
-  Runtime Variance per Benchmark
-========================================================================
-
-  Benchmark        Count   Mean (s)     Var (s²)   StdDev (s)      CoV
-  -------------- ------- ---------- ------------ ------------ --------
-  cachebwl2           48   1.235370  0.018524423     0.136104   11.02%
-  cachebwl3           49   1.635694  0.040906540     0.202254   12.37%
-  intipc              48   0.952151  0.007863225     0.088675    9.31%
-  latency             59   1.291113  0.026411390     0.162516   12.59%
-  qs                  49   1.040602  0.012370990     0.111225   10.69%
-  sleep               45   0.500276  0.000000790     0.000889    0.18%
-  triad               53   1.225150  0.014465213     0.120271    9.82%
-  xsmm                49   1.254924  0.016929074     0.130112   10.37%
+  Benchmark        Count     Mean (s)       Var (s²)     StdDev (s)      CoV
+  -------------- ------- ------------ -------------- -------------- --------
+  cachebwl2           13  0.000009973   2.005677e-12    0.000001416   14.20%
+  cachebwl3           12  0.000608011   2.937051e-08    0.000171378   28.19%
+  intipc              13  0.007185046   1.693730e-06    0.001301434   18.11%
+  latency             19  0.444615762   7.896557e-03    0.088862576   19.99%
+  qs                  12  0.284511370   2.761424e-03    0.052549248   18.47%
+  sleep               20  0.150335620   2.060314e-07    0.000453907    0.30%
+  triad               14  0.020667255   9.927121e-06    0.003150733   15.25%
+  xsmm                17  0.000066878   2.178559e-10    0.000014760   22.07%
+  
 ```
 
 ## Building

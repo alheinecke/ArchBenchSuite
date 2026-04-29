@@ -37,7 +37,7 @@
 /**
  * SleepBench – idle pseudo-benchmark.
  *
- * Each repetition sleeps for exactly 0.5 seconds using POSIX usleep().
+ * Each repetition sleeps for exactly 0.15 seconds using POSIX usleep().
  * Useful as a stand-in "idle" slot in the random benchmark round to
  * study system behaviour (power, frequency scaling, etc.) between
  * active benchmark runs.
@@ -50,7 +50,7 @@ public:
 
     void run_benchmark(int reps) override {
         reps *= reps_mult_;
-        static constexpr useconds_t SLEEP_US = 500000;  /* 0.5 s */
+        static constexpr useconds_t SLEEP_US = 150000;  /* 0.15 s */
 
         const double mono_ts = capture_monotonic();
 

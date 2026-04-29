@@ -47,7 +47,7 @@
 **     - alpha=1, beta=0, LIBXSMM_GEMM_BATCH_REDUCE_STRIDE
 **     - FLOPS per call: 2 * 64 * 24 * 64 * 16 = 3,145,728
 **
-**   QsBench: in-place quicksort on an array of int64_t values  –  fixed 64 MB
+**   QsBench: in-place quicksort on an array of int64_t values  –  fixed 16 MB
 **     - median-of-three pivot, insertion sort below 16 elements
 **     - each rep restores the pre-shuffled reference before timing the sort
 **     - reported metric: throughput in million elements per second (Melements/s)
@@ -71,11 +71,10 @@
 **     - each repetition calls sleep(1) for exactly 1 second
 **     - useful as an idle slot between active benchmarks in random rounds
 **
-** Usage: AgenticCPUBench <benchmark> <repetitions> <rounds>
+** Usage: AgenticCPUBench <benchmark> <rounds>
 **   benchmark: triad | cachebwl2 | cachebwl3 | xsmm | qs | intipc | latency | sleep | all
-**   repetitions: number of timed repetitions per benchmark per round
-**   rounds: number of outer rounds; each round runs enabled benchmarks in
-**           a freshly randomised order (uniform shuffle)
+**   rounds: number of outer rounds; each round runs one randomly chosen
+**           benchmark with a randomly drawn reps multiplier in [1, RND_REPS]
 */
 
 #include "triad_bench.hpp"
@@ -99,20 +98,24 @@
 static constexpr size_t SIZE_TRIAD      = 128ULL * 1024 * 1024; /* 128 MB */
 static constexpr size_t SIZE_CACHEBWL2  = 512ULL * 1024;        /* 512 KB */
 static constexpr size_t SIZE_CACHEBWL3  = 10ULL * 1024 * 1024;  /*  10 MB */
-static constexpr size_t SIZE_QS         = 64ULL * 1024 * 1024;  /*  64 MB */
+static constexpr size_t SIZE_QS         = 16ULL * 1024 * 1024;  /*  16 MB */
 static constexpr size_t SIZE_INTIPC     = 1ULL * 1024 * 1024;   /*   1 MB */
 static constexpr size_t SIZE_LATENCY    = 64ULL * 1024 * 1024;  /*  64 MB */
 
 /* Fixed multipliers applied to the user-supplied repetition count */
 /* They have fudged-factor on a single core of Intel(R) Core(TM) Ultra 7 258V in WSL */
-static constexpr int REPS_MULT_TRIAD     = 64;
-static constexpr int REPS_MULT_CACHEBWL2 = 150000;
-static constexpr int REPS_MULT_CACHEBWL3 = 3000;
+static constexpr int REPS_MULT_TRIAD     = 16;
+static constexpr int REPS_MULT_CACHEBWL2 = 37500;
+static constexpr int REPS_MULT_CACHEBWL3 = 800;
 static constexpr int REPS_MULT_QS        = 1;
-static constexpr int REPS_MULT_INTIPC    = 150;
-static constexpr int REPS_MULT_LATENCY   = 3;
-static constexpr int REPS_MULT_XSMM      = 20000;
+static constexpr int REPS_MULT_INTIPC    = 37;
+static constexpr int REPS_MULT_LATENCY   = 1;
+static constexpr int REPS_MULT_XSMM      = 5000;
 static constexpr int REPS_MULT_SLEEP     = 1;
+
+/* Upper bound (inclusive) for the per-round random reps multiplier drawn
+ * uniformly from [1, RND_REPS]. */
+static constexpr int RND_REPS = 30;
 
 /* Pair of display name + benchmark instance */
 struct BenchEntry {
@@ -121,9 +124,9 @@ struct BenchEntry {
 };
 
 int main(int argc, char* argv[]) {
-    if (argc < 4) {
+    if (argc < 3) {
         std::cout << "Usage: " << argv[0]
-                  << " <benchmark> <repetitions> <rounds> [options]" << std::endl;
+                  << " <benchmark> <rounds> [options]" << std::endl;
         std::cout << "  benchmark: triad | cachebwl2 | cachebwl3 | xsmm | qs | intipc | latency | sleep | all" << std::endl;
         std::cout << "  options:" << std::endl;
         std::cout << "    --dump-schedule <prefix>    write per-thread schedule to <prefix>_tid<N>.sched" << std::endl;
@@ -132,13 +135,12 @@ int main(int argc, char* argv[]) {
     }
 
     const char* bench_name = argv[1];
-    const int   reps       = atoi(argv[2]);
-    const int   rounds     = atoi(argv[3]);
+    const int   rounds     = atoi(argv[2]);
 
     /* Parse optional flags */
     std::string dump_prefix;
     std::string replay_prefix;
-    for (int i = 4; i < argc; ++i) {
+    for (int i = 3; i < argc; ++i) {
         if (strcmp(argv[i], "--dump-schedule") == 0 && i + 1 < argc) {
             dump_prefix = argv[++i];
         } else if (strcmp(argv[i], "--replay-schedule") == 0 && i + 1 < argc) {
@@ -174,8 +176,8 @@ int main(int argc, char* argv[]) {
         return -1;
     }
 
-    if (reps <= 0 || rounds <= 0) {
-        std::cerr << "Error: repetitions and rounds must be positive." << std::endl;
+    if (rounds <= 0) {
+        std::cerr << "Error: rounds must be positive." << std::endl;
         return -1;
     }
 
@@ -257,13 +259,16 @@ int main(int argc, char* argv[]) {
             benches.push_back({"sleep", b});
         }
 
-        /* Outer rounds loop – each round picks one benchmark at random,
-         * or replays a previously saved schedule.                           */
+        /* Outer rounds loop – each round picks one benchmark at random and
+         * a random reps multiplier in [1, RND_REPS], or replays a previously
+         * saved schedule.                                                    */
         std::mt19937 rng(std::random_device{}());
         std::uniform_int_distribution<size_t> dist(0, benches.size() - 1);
+        std::uniform_int_distribution<int> reps_dist(1, RND_REPS);
 
-        /* If replaying, read the schedule from file */
+        /* If replaying, read the schedule (bench index + reps multiplier) from file */
         std::vector<size_t> schedule(rounds);
+        std::vector<int>    reps_schedule(rounds);
         if (!replay_prefix.empty()) {
             std::string fname = replay_prefix + "_tid" + std::to_string(tid) + ".sched";
             std::ifstream ifs(fname);
@@ -272,21 +277,22 @@ int main(int argc, char* argv[]) {
                 std::cerr << "Error: cannot open schedule file '" << fname << "'" << std::endl;
             } else {
                 for (int r = 0; r < rounds; ++r) {
-                    ifs >> schedule[r];
+                    ifs >> schedule[r] >> reps_schedule[r];
                 }
             }
         } else {
             for (int r = 0; r < rounds; ++r) {
-                schedule[r] = dist(rng);
+                schedule[r]      = dist(rng);
+                reps_schedule[r] = reps_dist(rng);
             }
         }
 
-        /* If dumping, write the schedule to file */
+        /* If dumping, write the schedule (bench index + reps multiplier) to file */
         if (!dump_prefix.empty()) {
             std::string fname = dump_prefix + "_tid" + std::to_string(tid) + ".sched";
             std::ofstream ofs(fname);
             for (int r = 0; r < rounds; ++r) {
-                ofs << schedule[r] << "\n";
+                ofs << schedule[r] << " " << reps_schedule[r] << "\n";
             }
         }
 
@@ -298,7 +304,7 @@ int main(int argc, char* argv[]) {
 
         for (int round = 0; round < rounds; ++round) {
             const auto& e = benches[schedule[round]];
-            e.bench->run_benchmark(reps);
+            e.bench->run_benchmark(reps_schedule[round]);
         }
 
         #pragma omp barrier
@@ -327,8 +333,7 @@ int main(int argc, char* argv[]) {
         (t_wall_start.tv_sec * 1000000 + t_wall_start.tv_usec)) / 1.0e6;
     std::cout << "AgenticCPUBench: " << wall_s << " s, "
               << num_threads << " thread(s), "
-              << rounds << " round(s), "
-              << reps << " rep(s)" << std::endl;
+              << rounds << " round(s)" << std::endl;
 
     return 0;
 }
