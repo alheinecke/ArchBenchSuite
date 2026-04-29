@@ -187,20 +187,41 @@ LD_LIBRARY_PATH=./libxsmm/lib OMP_NUM_THREADS=4 ./AgenticCPUBench_avx2.exe all 1
 
 The helper script `gen_agentic_schedule.py` synthesises per-thread schedule
 files that approximate an agentic-AI worker mix on multiple cores. Each
-thread is assigned a *role* (orchestrator, coder, rag, tool, data,
-inference, graph, idle) which biases its benchmark mix and per-round
+thread is assigned a *role* which biases its benchmark mix and per-round
 reps multiplier (`k ∈ [1, RND_REPS]`) toward the workloads listed in
-"Workloads Approximated by Each Micro-Benchmark":
+"Workloads Approximated by Each Micro-Benchmark". When `--roles` is not
+given, roles are drawn uniformly at random per thread from the catalog
+below.
 
-- `sleep` bursts are heavy-tailed (lots of short waits, occasional long
-  blocking I/O / LLM round-trips).
-- `xsmm` reps spike on `inference`-role threads (long GEMM batches).
-- `intipc` and `qs` dominate `coder` threads (compilation, search, sort).
-- `latency` is amplified for `rag` and `graph` roles (embedding / KV /
-  graph traversal).
+#### Available Roles
+
+| Role           | Models                                                                                          | Dominant benches                                  |
+|----------------|-------------------------------------------------------------------------------------------------|---------------------------------------------------|
+| `orchestrator` | Top-level planner: decomposes goals, dispatches sub-tasks, joins on workers.                    | `sleep`, `intipc`, `qs`                           |
+| `llm_coder`    | Copilot/Claude-style coding agent: long LLM round-trips, source/diff edits, test runs.          | `sleep`, `intipc`, `qs`, `cachebwl2`              |
+| `researcher`   | Web-search / paper-link gathering agent: many fetches, long-document scans, summarisation.      | `sleep`, `cachebwl3`, `latency`                   |
+| `assistant`    | Chat / personal assistant: books appointments, replies to requests, short LLM turns.            | `sleep`, `cachebwl2`, `latency`                   |
+| `rag`          | Retrieval worker: vector-DB / KV / inverted-index probes, re-rank, small inference.             | `latency`, `cachebwl3`, `xsmm`, `qs`              |
+| `tool`         | External tool / shell / MCP runner: spawns processes, drains pipes, shuttles I/O.               | `sleep`, `triad`, `cachebwl2`                     |
+| `data`         | ETL / data-wrangler: scans tables and logs, projects, sorts, joins, writes results.             | `cachebwl3`, `cachebwl2`, `triad`, `qs`           |
+| `inference`    | Local model inference / re-rank: dense GEMM/attention/conv kernels.                             | `xsmm`, `cachebwl3`, `triad`                      |
+| `graph`        | Graph analytics (BFS, PageRank, SpMV): irregular pointer chasing on adjacency structures.       | `latency`, `qs`, `cachebwl3`                      |
+| `idle`         | Quiet observer / heartbeat thread: mostly waiting on events with light bookkeeping.             | `sleep`                                           |
+
+#### Per-Role Reps Shaping
+
+In addition to mix biases, several roles override the `Beta(a, b)` shape
+used to draw the per-round reps multiplier `k`, producing more realistic
+burst patterns:
+
+- `inference` + `xsmm` → long sustained GEMM batches.
+- `idle` + `sleep`, `llm_coder` + `sleep`, `researcher` + `sleep`,
+  `assistant` + `sleep` → mostly short waits with a heavy tail of long
+  blocking gaps (LLM round-trips, user-think time, network I/O).
+- `researcher` + `cachebwl3` → balanced long scans of fetched documents.
 
 ```bash
-# Generate 8-thread schedules, 200 rounds each, for the default agentic mix
+# Generate 8-thread schedules, 200 rounds each, with random roles per thread
 python3 gen_agentic_schedule.py --threads 8 --rounds 200 --prefix agentic
 
 # Replay them
