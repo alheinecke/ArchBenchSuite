@@ -183,6 +183,39 @@ LD_LIBRARY_PATH=./libxsmm/lib OMP_NUM_THREADS=4 ./AgenticCPUBench_avx2.exe all 1
 LD_LIBRARY_PATH=./libxsmm/lib OMP_NUM_THREADS=4 ./AgenticCPUBench_avx2.exe all 100 --replay-schedule ./my_run
 ```
 
+### Generating an Agentic Workload Schedule
+
+The helper script `gen_agentic_schedule.py` synthesises per-thread schedule
+files that approximate an agentic-AI worker mix on multiple cores. Each
+thread is assigned a *role* (orchestrator, coder, rag, tool, data,
+inference, graph, idle) which biases its benchmark mix and per-round
+reps multiplier (`k ∈ [1, RND_REPS]`) toward the workloads listed in
+"Workloads Approximated by Each Micro-Benchmark":
+
+- `sleep` bursts are heavy-tailed (lots of short waits, occasional long
+  blocking I/O / LLM round-trips).
+- `xsmm` reps spike on `inference`-role threads (long GEMM batches).
+- `intipc` and `qs` dominate `coder` threads (compilation, search, sort).
+- `latency` is amplified for `rag` and `graph` roles (embedding / KV /
+  graph traversal).
+
+```bash
+# Generate 8-thread schedules, 200 rounds each, for the default agentic mix
+python3 gen_agentic_schedule.py --threads 8 --rounds 200 --prefix agentic
+
+# Replay them
+LD_LIBRARY_PATH=./libxsmm/lib OMP_NUM_THREADS=8 \
+  ./AgenticCPUBench_avx2.exe all 200 --replay-schedule agentic
+
+# Customise: pin specific roles per thread
+python3 gen_agentic_schedule.py --threads 8 --rounds 500 --prefix infserve \
+    --roles inference inference inference inference \
+            rag        rag        tool       orchestrator
+```
+
+The script honours `RND_REPS` (default 30); pass `--rnd-reps N` if you
+have changed the compile-time constant in `AgenticCPUBench.cpp`.
+
 ## Output
 
 ### CSV Files
@@ -300,7 +333,7 @@ Example output (8 threads, 15 rounds each, `all` mode on Intel Core Ultra 7 258V
   sleep               20  0.150335620   2.060314e-07    0.000453907    0.30%
   triad               14  0.020667255   9.927121e-06    0.003150733   15.25%
   xsmm                17  0.000066878   2.178559e-10    0.000014760   22.07%
-  
+
 ```
 
 ## Building
