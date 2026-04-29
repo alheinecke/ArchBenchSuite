@@ -213,8 +213,9 @@ python3 gen_agentic_schedule.py --threads 8 --rounds 500 --prefix infserve \
             rag        rag        tool       orchestrator
 ```
 
-The script honours `RND_REPS` (default 30); pass `--rnd-reps N` if you
-have changed the compile-time constant in `AgenticCPUBench.cpp`.
+The script uses a hard-coded `RND_REPS = 30` matching the compile-time
+constant in `AgenticCPUBench.cpp`; if you change the C++ value, update
+`RND_REPS` at the top of `gen_agentic_schedule.py` to match.
 
 ## Output
 

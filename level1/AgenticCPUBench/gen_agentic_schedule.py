@@ -66,6 +66,10 @@ BASE_MIX = {
     "xsmm":      0.05,   # GEMM / inference bursts
 }
 
+# Upper bound (inclusive) for the per-round random reps multiplier. MUST
+# match RND_REPS in AgenticCPUBench.cpp.
+RND_REPS = 30
+
 # Per-role overlays. Each role tweaks BASE_MIX (multiplicative weights) to
 # approximate a specialised agent worker. The 8 default roles below cover
 # the typical population in a multi-agent system.
@@ -96,25 +100,13 @@ ROLE_WEIGHTS = {
                      "qs": 0.5, "xsmm": 0.2, "triad": 0.5, "latency": 0.5},
 }
 
-# Default role assignment for 8 threads.
-DEFAULT_ROLES_8 = [
-    "orchestrator",
-    "coder",
-    "coder",
-    "rag",
-    "tool",
-    "data",
-    "inference",
-    "graph",
-]
-
 
 def normalise(weights):
     s = sum(weights.values())
     return {k: v / s for k, v in weights.items()}
 
 
-def role_mix(role, rnd_reps_max):
+def role_mix(role):
     """Combine BASE_MIX with the role overlay and return a normalised dict."""
     overlay = ROLE_WEIGHTS.get(role, {})
     mix = {}
@@ -134,8 +126,8 @@ def draw_bench(mix, rng):
     return next(reversed(mix))
 
 
-def draw_reps(bench_name, role, rnd_reps_max, rng):
-    """Draw a reps multiplier in [1, RND_REPS_MAX] biased per benchmark.
+def draw_reps(bench_name, role, rng):
+    """Draw a reps multiplier in [1, RND_REPS] biased per benchmark.
 
     Agentic workloads have very heterogeneous burst lengths:
       - sleep: mostly short waits, occasional long blocking calls.
@@ -143,7 +135,7 @@ def draw_reps(bench_name, role, rnd_reps_max, rng):
       - intipc/qs/cachebw/triad/latency: medium, somewhat dispersed.
     """
     # Per-bench shape parameters (alpha, beta) for a Beta distribution
-    # over [0,1] which we then map to [1, rnd_reps_max].
+    # over [0,1] which we then map to [1, RND_REPS].
     shape = {
         # Small-mean, long tail (most are short, occasional long bursts):
         "sleep":     (1.5, 6.0),
@@ -169,16 +161,16 @@ def draw_reps(bench_name, role, rnd_reps_max, rng):
         a, b = 1.2, 2.5
 
     u = rng.betavariate(a, b)             # u in (0,1)
-    k = 1 + int(round(u * (rnd_reps_max - 1)))
-    return max(1, min(rnd_reps_max, k))
+    k = 1 + int(round(u * (RND_REPS - 1)))
+    return max(1, min(RND_REPS, k))
 
 
-def gen_thread_schedule(role, rounds, rnd_reps_max, rng):
-    mix = role_mix(role, rnd_reps_max)
+def gen_thread_schedule(role, rounds, rng):
+    mix = role_mix(role)
     schedule = []
     for _ in range(rounds):
         bench = draw_bench(mix, rng)
-        k = draw_reps(bench, role, rnd_reps_max, rng)
+        k = draw_reps(bench, role, rng)
         schedule.append((BENCH_INDEX[bench], k, bench))
     return schedule
 
@@ -218,16 +210,13 @@ def parse_args():
                    help="Number of threads / schedule files (default: 8).")
     p.add_argument("--rounds", type=int, default=200,
                    help="Number of rounds per thread (default: 200).")
-    p.add_argument("--rnd-reps", type=int, default=30,
-                   help="Upper bound for the per-round reps multiplier; "
-                        "MUST match RND_REPS in AgenticCPUBench.cpp (default: 30).")
     p.add_argument("--seed", type=int, default=42,
                    help="RNG seed for reproducibility (default: 42).")
     p.add_argument("--roles", nargs="*", default=None,
                    help="Optional explicit list of roles, one per thread. "
                         f"Available: {sorted(ROLE_WEIGHTS.keys())}. "
-                        "If omitted, a sensible default for 8 threads is used "
-                        "and recycled for other thread counts.")
+                        "If omitted, a role is drawn uniformly at random "
+                        "per thread from the available role catalog.")
     p.add_argument("--quiet", action="store_true",
                    help="Suppress per-thread mix summary.")
     return p.parse_args()
@@ -236,10 +225,12 @@ def parse_args():
 def main():
     args = parse_args()
 
-    if args.threads <= 0 or args.rounds <= 0 or args.rnd_reps <= 0:
-        print("error: --threads, --rounds and --rnd-reps must be positive.",
+    if args.threads <= 0 or args.rounds <= 0:
+        print("error: --threads and --rounds must be positive.",
               file=sys.stderr)
         sys.exit(1)
+
+    rng = random.Random(args.seed)
 
     if args.roles:
         unknown = [r for r in args.roles if r not in ROLE_WEIGHTS]
@@ -254,18 +245,13 @@ def main():
             sys.exit(1)
         roles = list(args.roles)
     else:
-        # Default mapping for 8 threads; for other counts cycle / truncate.
-        if args.threads == 8:
-            roles = list(DEFAULT_ROLES_8)
-        else:
-            roles = [DEFAULT_ROLES_8[i % len(DEFAULT_ROLES_8)]
-                     for i in range(args.threads)]
-
-    rng = random.Random(args.seed)
+        # Pick a random role per thread from the available role catalog.
+        available = sorted(ROLE_WEIGHTS.keys())
+        roles = [rng.choice(available) for _ in range(args.threads)]
 
     if not args.quiet:
         print(f"Generating {args.threads} schedule(s), {args.rounds} rounds each,"
-              f" RND_REPS={args.rnd_reps}, seed={args.seed}")
+              f" RND_REPS={RND_REPS}, seed={args.seed}")
         print(f"Output files: {args.prefix}_tid0..{args.threads - 1}.sched")
         print()
 
@@ -274,8 +260,7 @@ def main():
         # Each thread gets its own RNG stream derived from the master seed
         # so individual thread schedules are reproducible independently.
         thread_rng = random.Random(rng.random())
-        sched = gen_thread_schedule(roles[tid], args.rounds,
-                                    args.rnd_reps, thread_rng)
+        sched = gen_thread_schedule(roles[tid], args.rounds, thread_rng)
         fname = write_schedule(args.prefix, tid, sched)
         out_files.append(fname)
         if not args.quiet:
