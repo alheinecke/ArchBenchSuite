@@ -34,6 +34,11 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/time.h>
+#include <unistd.h>
+
+#if defined(__AVX512F__)
+#include <immintrin.h>
+#endif
 
 #ifdef _OPENMP
 #include <omp.h>
@@ -71,8 +76,9 @@ int main(int argc, char* argv[]) {
   double* l_data;
   size_t l_n = 0;
   size_t l_i = 0;
+  size_t l_vec_end = 0;
+  long l_page_size;
   double* l_times;
-  double l_result;
   double l_avgTime, l_minTime, l_maxTime;
   double l_size = (double)((size_t)STREAM_ARRAY_SIZE)*sizeof(double);
   struct timeval l_startTime, l_endTime;
@@ -86,8 +92,27 @@ int main(int argc, char* argv[]) {
   zero_core_ctrs( &s );
 #endif
 
-  posix_memalign((void**)&l_data, 4096, ((size_t)STREAM_ARRAY_SIZE)*sizeof(double));
+  (void)argc;
+  (void)argv;
+
+  l_page_size = sysconf(_SC_PAGESIZE);
+  if (l_page_size <= 0) {
+    fprintf(stderr, "Unable to query page size\n");
+    return 1;
+  }
+
+  if (posix_memalign((void**)&l_data, (size_t)l_page_size, ((size_t)STREAM_ARRAY_SIZE)*sizeof(double)) != 0) {
+    fprintf(stderr, "Aligned allocation failed\n");
+    return 1;
+  }
   l_times = (double*)malloc(sizeof(double)*NTIMES);
+  if (l_times == NULL) {
+    fprintf(stderr, "Timing allocation failed\n");
+    free(l_data);
+    return 1;
+  }
+
+  l_vec_end = (((size_t)STREAM_ARRAY_SIZE) / 8) * 8;
 
   printf("WRITE BW Test Size MiB: %f\n", (l_size/(1024.0*1024.0)));
   
@@ -105,14 +130,31 @@ int main(int argc, char* argv[]) {
     gettimeofday(&l_startTime, NULL);
 
     // we do manual reduction here as we don't rely on a smart OpenMP implementation
-    #pragma omp parallel 
+    #pragma omp parallel
     {
       double l_val = (double)omp_get_thread_num();
+#if defined(__AVX512F__)
+      __m512d l_vec = _mm512_set1_pd(l_val);
+
+      #pragma omp for
+      for ( l_n = 0; l_n < l_vec_end; l_n += 8 ) {
+        _mm512_stream_pd(l_data + l_n, l_vec);
+      }
+
+      #pragma omp for
+      for ( l_n = l_vec_end; l_n < STREAM_ARRAY_SIZE; l_n++ ) {
+        l_data[l_n] = l_val;
+      }
+#else
       #pragma omp for
       for ( l_n = 0; l_n < STREAM_ARRAY_SIZE; l_n++ ) {
         l_data[l_n] = l_val;
-      }      
+      }
+#endif
     }
+#if defined(__AVX512F__)
+    _mm_sfence();
+#endif
 
     gettimeofday(&l_endTime, NULL);
 #ifdef USE_CORE_PERF_COUNTERS
@@ -144,6 +186,9 @@ int main(int argc, char* argv[]) {
   get_l2_bw_core_ctrs( &s, l_avgTime, &bw_cnt );
   printf("%f,%f,%f,%f,%f,%f,%f (counters)\n", l_size/1024.0, bw_cnt.rd, bw_cnt.wr, bw_cnt.wr2, bw_cnt.wr3, bw_cnt.wr4, l_avgTime);
 #endif
+
+  free(l_times);
+  free(l_data);
   
   return 0; 
 }

@@ -32,9 +32,9 @@ CFLAGS = -O2 -fopenmp -DNTIMES=100 -DSTREAM_ARRAY_SIZE=64000000 -mcpu=power8 -fs
 #CFLAGS = -O2 -fopenmp -DNTIMES=100 -DSTREAM_ARRAY_SIZE=64000000 -march=armv8-a -fstrict-aliasing
 #CFLAGS = -O2 -fopenmp -DNTIMES=100 -DSTREAM_ARRAY_SIZE=64000000 -mavx2 -fstrict-aliasing
 #CFLAGS = -O2 -fopenmp -DNTIMES=100 -DSTREAM_ARRAY_SIZE=64000000 -msse3 -fstrict-aliasing
-CC = icc
-CFLAGS = -O3 -xCOMMON-AVX512 -qopenmp -DNTIMES=100 -DSTREAM_ARRAY_SIZE=1000000000 -qopt-streaming-cache-evict=0 -qopt-streaming-stores always -qopt-prefetch-distance=64,8
-CFLAGS = -O3 -xCOMMON-AVX512 -qopenmp -DNTIMES=100000 -DSTREAM_ARRAY_SIZE=4000000 -qopt-streaming-cache-evict=0 -qopt-streaming-stores always -qopt-prefetch-distance=64,8
+CC = icx
+CFLAGS = -O3 -xCOMMON-AVX512 -qopenmp -DNTIMES=100 -DSTREAM_ARRAY_SIZE=2147483648 -qopt-streaming-stores always -qopt-prefetch-distance=64,8
+# CFLAGS = -O3 -xCOMMON-AVX512 -qopenmp -DNTIMES=100000 -DSTREAM_ARRAY_SIZE=4000000 -qopt-streaming-stores always -qopt-prefetch-distance=64,8
 
 all: writebw.exe
 
